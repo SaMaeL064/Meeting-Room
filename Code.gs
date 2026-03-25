@@ -6,12 +6,14 @@
  * * ADDED: Multi-day Booking (SeriesID), รูปภาพห้องประชุม, และรองรับการเปลี่ยนห้อง
  * * UPDATE: ดึงรูปรถยนต์แบบเดียวกับห้องประชุม
  * * UPDATE V9.1: เพิ่มฟังก์ชันแก้ห้องพร้อมกันทั้งซีรีส์ (Bulk Edit), เลือกจองเฉพาะวัน (Recurring Days) และแก้บัค Time Parsing / Calendar Description
+ * * UPDATE V9.2: เพิ่มฟังก์ชันให้ Admin สามารถเพิ่ม/แก้ไข ลิงก์รูปภาพห้องและรถยนต์ได้
+ * * UPDATE V9.3: แก้ไขบัคการบันทึกรูปลง Sheet และลบรูปภาพ Default ออก
  */
 
 // --- การตั้งค่าเริ่มต้น ---
 // *** อย่าลืมตรวจสอบ ID ของไฟล์จริงของคุณ ***
 const SPREADSHEET_ID = "1cuzxrpg__X0bE_IGyW_JTsgyF6K1ZQdl03zdHVrO0hQ"; // <--- ตรวจสอบ ID
-const APP_VERSION = "9.1-BugFixes"; // <--- อัปเดตเวอร์ชัน
+const APP_VERSION = "9.3-ImageFix"; // <--- อัปเดตเวอร์ชัน
 
 
 // Sheet Names
@@ -71,8 +73,9 @@ function getAdminDashboardData() {
   
   return {
     userEmail: user ? user.getEmail() : '',
-    rooms: getResources_(SHEET_NAME_ROOMS, "RoomName", null),
-    cars: getResources_(SHEET_NAME_CARS, "CarName", null),
+    // อัปเดตให้ดึงเป็น Object พร้อม ImageUrl ส่งไปให้หน้า Admin
+    rooms: getResourcesWithImages_(SHEET_NAME_ROOMS, "RoomName"),
+    cars: getResourcesWithImages_(SHEET_NAME_CARS, "CarName"),
     admins: getAdmins(),
     roomBookings: getAllBookingsForAdmin_(SHEET_NAME_ROOM_BOOKINGS, timezone, "Room"),
     carBookings: getAllBookingsForAdmin_(SHEET_NAME_CAR_BOOKINGS, timezone, "Car"),
@@ -148,7 +151,7 @@ function checkAttendeesAvailability(emails, startTimeStr, endTimeStr) {
 
 // --- Generic Resource Management ---
 
-// อัปเดต: ฟังก์ชันสำหรับดึงชื่อพร้อมลิงก์รูปภาพ (คอลัมน์ A = ชื่อ, คอลัมน์ B = ลิงก์รูป)
+// อัปเดต: ฟังก์ชันสำหรับดึงชื่อพร้อมลิงก์รูปภาพ (คอลัมน์ A = ชื่อ, คอลัมน์ B = ลิงก์รูป) และลบ Default Image ออก
 function getResourcesWithImages_(sheetName, header) {
   try {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
@@ -164,7 +167,7 @@ function getResourcesWithImages_(sheetName, header) {
     const data = sheet.getRange(2, 1, lastRow - 1, 2).getValues();
     return data.map(row => ({
       name: row[0] ? String(row[0]).trim() : "",
-      image: row[1] ? String(row[1]).trim() : "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=800" // รูปภาพ Default
+      image: row[1] ? String(row[1]).trim() : "" // <--- แก้ไข: ลบ Default รูปภาพออก ป้องกันบั๊กลิงก์ซ้ำ
     })).filter(r => r.name !== "");
   } catch (e) {
     Logger.log(`Error getting resources from ${sheetName}: ` + e.message);
@@ -194,34 +197,41 @@ function getResources_(sheetName, header, defaultItem) {
   }
 }
 
-function addRoom(roomName) {
+function addRoom(roomName, imageUrl = "") {
   checkIfUserIsAdminOrThrow_(); 
-  return addResource_(SHEET_NAME_ROOMS, "RoomName", roomName, "ห้องประชุม");
+  return addResource_(SHEET_NAME_ROOMS, "RoomName", roomName, "ห้องประชุม", imageUrl);
 }
 
-function addCar(carName) {
+function addCar(carName, imageUrl = "") {
   checkIfUserIsAdminOrThrow_(); 
-  return addResource_(SHEET_NAME_CARS, "CarName", carName, "รถยนต์");
+  return addResource_(SHEET_NAME_CARS, "CarName", carName, "รถยนต์", imageUrl);
 }
 
-function addResource_(sheetName, header, resourceName, resourceType) {
+function addResource_(sheetName, header, resourceName, resourceType, imageUrl = "") {
   if (!resourceName || resourceName.trim() === "") {
     throw new Error(`ชื่อ${resourceType}ห้ามว่าง`);
   }
   const trimmedName = resourceName.trim();
   try {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-    const sheet = ss.getSheetByName(sheetName);
+    let sheet = ss.getSheetByName(sheetName);
     if (!sheet) {
-        throw new Error(`Sheet "${sheetName}" not found.`);
+        sheet = ss.insertSheet(sheetName);
+        sheet.appendRow([header, "ImageUrl"]);
+    } else {
+        ensureHeader_(sheet, [header, "ImageUrl"]);
     }
+    
     const lastRow = sheet.getLastRow();
     const existingItems = lastRow > 1 ? sheet.getRange(2, 1, lastRow - 1, 1).getValues().flat().map(r => String(r).toLowerCase().trim()) : [];
     
     if (existingItems.includes(trimmedName.toLowerCase())) {
       throw new Error(`${resourceType}ชื่อ '${trimmedName}' มีอยู่แล้ว`);
     }
-    sheet.appendRow([trimmedName]);
+    
+    // บันทึกทั้งชื่อและรูปลงไปใน 2 คอลัมน์แรก
+    sheet.appendRow([trimmedName, imageUrl.trim()]);
+    
     return { success: true, message: `เพิ่ม${resourceType}สำเร็จ`, newResource: trimmedName }; 
   } catch (e) {
     throw new Error(e.message || `เกิดข้อผิดพลาดในการเพิ่ม${resourceType}`);
@@ -277,17 +287,17 @@ function deleteResource_(resourceSheetName, bookingSheetName, resourceHeader, re
   return { success: true, message: `ลบ ${resourceType} '${resourceName}' สำเร็จ`, removedResource: resourceName };
 }
 
-function updateRoom(oldName, newName) {
+function updateRoom(oldName, newName, imageUrl = "") {
   checkIfUserIsAdminOrThrow_();
-  return updateResource_(SHEET_NAME_ROOMS, SHEET_NAME_ROOM_BOOKINGS, "Room", oldName, newName, "ห้องประชุม");
+  return updateResource_(SHEET_NAME_ROOMS, SHEET_NAME_ROOM_BOOKINGS, "Room", oldName, newName, "ห้องประชุม", imageUrl);
 }
 
-function updateCar(oldName, newName) {
+function updateCar(oldName, newName, imageUrl = "") {
   checkIfUserIsAdminOrThrow_();
-  return updateResource_(SHEET_NAME_CARS, SHEET_NAME_CAR_BOOKINGS, "Car", oldName, newName, "รถยนต์");
+  return updateResource_(SHEET_NAME_CARS, SHEET_NAME_CAR_BOOKINGS, "Car", oldName, newName, "รถยนต์", imageUrl);
 }
 
-function updateResource_(resourceSheetName, bookingSheetName, resourceHeader, oldName, newName, resourceType) {
+function updateResource_(resourceSheetName, bookingSheetName, resourceHeader, oldName, newName, resourceType, imageUrl = "") {
   const trimmedNewName = newName.trim();
   if (!trimmedNewName) {
     throw new Error(`ชื่อ${resourceType}ใหม่ห้ามว่าง`);
@@ -304,7 +314,8 @@ function updateResource_(resourceSheetName, bookingSheetName, resourceHeader, ol
     const lastRow = resourceSheet.getLastRow();
     const existingItems = lastRow > 1 ? resourceSheet.getRange(2, 1, lastRow - 1, 1).getValues().flat().map(r => String(r).toLowerCase().trim()) : [];
     
-    if (existingItems.includes(trimmedNewName.toLowerCase())) {
+    // ตรวจสอบว่าชื่อซ้ำหรือไม่ (ข้ามเคสที่ชื่อเดิมและชื่อใหม่เหมือนกันเพื่อใช้ในการแก้ไขแค่รูปภาพอย่างเดียว)
+    if (oldName.toLowerCase().trim() !== trimmedNewName.toLowerCase() && existingItems.includes(trimmedNewName.toLowerCase())) {
       throw new Error(`${resourceType}ชื่อ '${trimmedNewName}' มีอยู่แล้ว`);
     }
 
@@ -315,31 +326,37 @@ function updateResource_(resourceSheetName, bookingSheetName, resourceHeader, ol
       throw new Error(`ไม่พบ ${resourceType} ชื่อเดิม '${oldName}'`);
     }
 
+    ensureHeader_(resourceSheet, [resourceHeader, "ImageUrl"]);
+
     resourceSheet.getRange(rowIndex + 2, 1).setValue(trimmedNewName);
+    resourceSheet.getRange(rowIndex + 2, 2).setValue(imageUrl.trim()); // อัปเดตคอลัมน์รูภาพ
 
-    const bookingSheet = ss.getSheetByName(bookingSheetName);
-    if (bookingSheet && bookingSheet.getLastRow() > 1) {
-      const bookingData = bookingSheet.getDataRange().getValues();
-      const headers = bookingData.shift();
-      const resourceColIndex = headers.indexOf(resourceHeader);
+    // อัปเดตข้อมูลการจองเฉพาะในกรณีที่ "ชื่อห้อง" มีการเปลี่ยนแปลง
+    if (oldName.trim() !== trimmedNewName) {
+        const bookingSheet = ss.getSheetByName(bookingSheetName);
+        if (bookingSheet && bookingSheet.getLastRow() > 1) {
+          const bookingData = bookingSheet.getDataRange().getValues();
+          const headers = bookingData.shift();
+          const resourceColIndex = headers.indexOf(resourceHeader);
 
-      if (resourceColIndex !== -1) {
-        const rangesToUpdate = [];
-        bookingData.forEach((row, index) => {
-          if (String(row[resourceColIndex]).trim() === String(oldName).trim()) {
-            rangesToUpdate.push(bookingSheet.getRange(index + 2, resourceColIndex + 1));
+          if (resourceColIndex !== -1) {
+            const rangesToUpdate = [];
+            bookingData.forEach((row, index) => {
+              if (String(row[resourceColIndex]).trim() === String(oldName).trim()) {
+                rangesToUpdate.push(bookingSheet.getRange(index + 2, resourceColIndex + 1));
+              }
+            });
+
+            if (rangesToUpdate.length > 0) {
+              rangesToUpdate.forEach(range => range.setValue(trimmedNewName));
+            }
           }
-        });
-
-        if (rangesToUpdate.length > 0) {
-          rangesToUpdate.forEach(range => range.setValue(trimmedNewName));
         }
-      }
     }
     
     return { 
       success: true, 
-      message: `อัปเดต ${resourceType} เป็น '${trimmedNewName}' สำเร็จ`, 
+      message: `อัปเดต ${resourceType} '${trimmedNewName}' สำเร็จ`, 
       oldName: oldName, 
       newName: trimmedNewName 
     };
