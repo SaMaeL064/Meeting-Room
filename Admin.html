@@ -1,0 +1,1429 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <base target="_top">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - Reservation System</title>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+    <style>
+        body { 
+            font-family: 'Sarabun', sans-serif; 
+            background-color: #f1f5f9; 
+        }
+        
+        .tab-button { 
+            transition: all 0.3s ease; 
+        }
+        
+        .tab-button.active { 
+            border-bottom-color: #4f46e5; 
+            color: #4f46e5; 
+            font-weight: 700; 
+        }
+        
+        .booking-subtab-button { 
+            transition: all 0.2s ease; 
+            border-bottom: 3px solid transparent; 
+        }
+        
+        .booking-subtab-button.active { 
+            border-bottom-color: #16a34a; 
+            color: #15803d; 
+        }
+        
+        .modal { 
+            display: none; 
+            position: fixed; 
+            z-index: 1000; 
+            left: 0; 
+            top: 0; 
+            width: 100%; 
+            height: 100%; 
+            overflow: auto; 
+            background-color: rgba(0,0,0,0.5); 
+            align-items: center; 
+            justify-content: center; 
+            transition: opacity 0.3s ease; 
+        }
+        
+        .modal-content { 
+            background-color: #fefefe; 
+            margin: auto; 
+            padding: 24px; 
+            border-radius: 0.5rem; 
+            width: 90%; 
+            max-width: 500px; 
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); 
+            transform: scale(0.95); 
+            transition: transform 0.3s ease; 
+        }
+        
+        .modal.flex { 
+            display: flex; 
+        } 
+        
+        .modal.flex .modal-content { 
+            transform: scale(1); 
+        }
+        
+        .admin-table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            overflow: hidden; 
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1); 
+            border-radius: 0.5rem; 
+            table-layout: fixed; 
+        }
+        
+        .admin-table th, .admin-table td { 
+            padding: 12px 16px; 
+            text-align: left; 
+            border-bottom: 1px solid #e2e8f0; 
+            word-wrap: break-word; 
+            white-space: normal; 
+        }
+        
+        .admin-table th { 
+            background-color: #f8fafc; 
+            font-weight: 600; 
+            color: #475569; 
+        }
+        
+        .admin-table td { 
+            background-color: #ffffff; 
+            color: #334155; 
+        }
+        
+        .admin-table tr:last-child td { 
+            border-bottom: none; 
+        }
+        
+        .admin-table tr:hover td { 
+            background-color: #f9fafb; 
+        }
+        
+        .truncate { 
+            overflow: hidden; 
+            text-overflow: ellipsis; 
+            white-space: nowrap; 
+            max-width: 200px; 
+        }
+        
+        .report-table { 
+            width: 100%; 
+        } 
+        
+        .report-table td { 
+            padding: 8px 0; 
+            vertical-align: middle; 
+        }
+        
+        .bar-bg { 
+            background-color: #e2e8f0; 
+            border-radius: 0.25rem; 
+            height: 28px; 
+            overflow: hidden; 
+        }
+        
+        .bar-fill { 
+            background-color: #4f46e5; 
+            height: 100%; 
+            padding: 4px 8px; 
+            color: white; 
+            font-size: 0.875rem; 
+            font-weight: 500; 
+            white-space: nowrap; 
+            text-align: left; 
+            transition: width 0.3s ease; 
+        }
+        
+        .top-bookers-list { 
+            list-style: decimal; 
+            list-style-position: inside; 
+            padding-left: 0.5rem; 
+            space-y: 0.5rem; 
+            color: #334155; 
+        }
+    </style>
+</head>
+<body>
+
+    <header class="bg-white shadow-md p-4 flex justify-between items-center">
+        <div class="flex items-center gap-3">
+            <i class="fa-solid fa-shield-halved text-2xl text-indigo-600"></i>
+            <h1 class="text-xl font-bold text-gray-800">Admin Panel</h1>
+        </div>
+        <div class="flex items-center gap-4">
+            <span class="text-sm text-gray-600 hidden sm:inline">
+                ผู้ใช้: <strong id="admin-user-email">...</strong>
+            </span>
+            <button id="logout-btn" class="text-sm text-gray-500 hover:text-indigo-600 font-medium">
+                <i class="fa-solid fa-right-from-bracket mr-1"></i> ออก
+            </button>
+        </div>
+    </header>
+
+    <nav class="bg-white shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex gap-8 overflow-x-auto">
+                <button data-tab="dashboard" class="tab-button active py-4 px-1 border-b-4 border-transparent text-gray-500 hover:text-gray-700 whitespace-nowrap">
+                    <i class="fa-solid fa-chart-pie mr-2"></i> สรุปข้อมูล
+                </button>
+                <button data-tab="bookings" class="tab-button py-4 px-1 border-b-4 border-transparent text-gray-500 hover:text-gray-700 whitespace-nowrap">
+                    <i class="fa-solid fa-history mr-2"></i> ประวัติการจอง
+                </button>
+                <button data-tab="reports" class="tab-button py-4 px-1 border-b-4 border-transparent text-gray-500 hover:text-gray-700 whitespace-nowrap">
+                    <i class="fa-solid fa-chart-line mr-2"></i> รายงานและสถิติ
+                </button>
+                <button data-tab="rooms" class="tab-button py-4 px-1 border-b-4 border-transparent text-gray-500 hover:text-gray-700 whitespace-nowrap">
+                    <i class="fa-solid fa-people-roof mr-2"></i> จัดการห้องประชุม
+                </button>
+                <button data-tab="cars" class="tab-button py-4 px-1 border-b-4 border-transparent text-gray-500 hover:text-gray-700 whitespace-nowrap">
+                    <i class="fa-solid fa-car mr-2"></i> จัดการรถยนต์
+                </button>
+                <button data-tab="admins" class="tab-button py-4 px-1 border-b-4 border-transparent text-gray-500 hover:text-gray-700 whitespace-nowrap">
+                    <i class="fa-solid fa-users-cog mr-2"></i> จัดการผู้ดูแล
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-[1400px] mx-auto p-4 sm:p-6 lg:p-8">
+
+        <!-- Dashboard Tab -->
+        <div id="dashboard-tab" class="tab-content">
+            <h2 class="text-2xl font-semibold text-gray-900 mb-6">สรุปข้อมูลรวม</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div class="bg-white p-6 rounded-lg shadow-lg border-l-4 border-indigo-500">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-500">ห้องประชุม</p>
+                            <p id="stats-rooms" class="text-3xl font-bold text-gray-900">0</p>
+                        </div>
+                        <i class="fa-solid fa-people-roof text-4xl text-indigo-300"></i>
+                    </div>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow-lg border-l-4 border-teal-500">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-500">รถยนต์</p>
+                            <p id="stats-cars" class="text-3xl font-bold text-gray-900">0</p>
+                        </div>
+                        <i class="fa-solid fa-car text-4xl text-teal-300"></i>
+                    </div>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow-lg border-l-4 border-slate-500">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-500">ผู้ดูแลระบบ</p>
+                            <p id="stats-admins" class="text-3xl font-bold text-gray-900">0</p>
+                        </div>
+                        <i class="fa-solid fa-users-cog text-4xl text-slate-300"></i>
+                    </div>
+                </div>
+                 <div class="bg-white p-6 rounded-lg shadow-lg border-l-4 border-green-500">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-500">การจองที่ Active</p>
+                            <p id="stats-active-bookings" class="text-3xl font-bold text-gray-900">0</p>
+                        </div>
+                        <i class="fa-solid fa-calendar-check text-4xl text-green-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bookings Tab -->
+        <div id="bookings-tab" class="tab-content hidden">
+            <h2 class="text-2xl font-semibold text-gray-900 mb-6">ประวัติการจอง</h2>
+            <div class="flex gap-6 border-b border-gray-200 mb-6">
+                 <button data-subtab="rooms" class="booking-subtab-button active py-3 px-1 font-semibold text-gray-500 hover:text-gray-700">
+                     <i class="fa-solid fa-people-roof mr-2"></i> ประวัติการจองห้อง
+                 </button>
+                 <button data-subtab="cars" class="booking-subtab-button py-3 px-1 font-semibold text-gray-500 hover:text-gray-700">
+                     <i class="fa-solid fa-car mr-2"></i> ประวัติการจองรถ
+                 </button>
+            </div>
+
+            <!-- Room Bookings -->
+            <div id="subtab-rooms" class="booking-sub-tab">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4 p-4 bg-white rounded-lg shadow">
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">ค้นหา</label>
+                        <div class="relative">
+                            <input type="text" id="room-booking-search" placeholder="ค้นหา (หัวข้อ, ผู้จอง, ห้อง)..." class="pl-10 pr-4 py-2 border border-gray-300 rounded-md w-full">
+                            <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">สถานะ</label>
+                        <select id="room-booking-status-filter" class="w-full p-2 border border-gray-300 rounded-md">
+                            <option value="all">ทั้งหมด</option>
+                            <option value="active">Active</option>
+                            <option value="finished">Finished</option>
+                            <option value="cancelled">Cancelled</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">วันที่จอง</label>
+                        <select id="room-booking-date-filter" class="w-full p-2 border border-gray-300 rounded-md">
+                            <option value="all">ตลอดเวลา</option>
+                            <option value="today">วันนี้</option>
+                            <option value="7days">7 วันที่ผ่านมา</option>
+                            <option value="30days">30 วันที่ผ่านมา</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 8%">สถานะ</th>
+                                <th style="width: 12%">ห้อง</th>
+                                <th style="width: 15%">หัวข้อ</th>
+                                <th style="width: 15%">ผู้เข้าร่วม</th>
+                                <th style="width: 15%">วัน-เวลาใช้งาน</th>
+                                <th style="width: 10%">วันที่จอง</th>
+                                <th style="width: 10%">ผู้จอง</th>
+                                <th style="width: 10%">ผู้ยกเลิก</th>
+                                <th style="width: 5%">จัดการ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="room-bookings-table">
+                            <tr>
+                                <td colspan="9" class="text-center text-gray-500 py-12">กำลังโหลด...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Car Bookings -->
+            <div id="subtab-cars" class="booking-sub-tab hidden">
+                 <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4 p-4 bg-white rounded-lg shadow">
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">ค้นหา</label>
+                        <div class="relative">
+                            <input type="text" id="car-booking-search" placeholder="ค้นหา (หัวข้อ, ผู้จอง, รถ)..." class="pl-10 pr-4 py-2 border border-gray-300 rounded-md w-full">
+                            <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">สถานะ</label>
+                        <select id="car-booking-status-filter" class="w-full p-2 border border-gray-300 rounded-md">
+                            <option value="all">ทั้งหมด</option>
+                            <option value="active">Active</option>
+                            <option value="finished">Finished</option>
+                            <option value="cancelled">Cancelled</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">วันที่จอง</label>
+                        <select id="car-booking-date-filter" class="w-full p-2 border border-gray-300 rounded-md">
+                            <option value="all">ตลอดเวลา</option>
+                            <option value="today">วันนี้</option>
+                            <option value="7days">7 วันที่ผ่านมา</option>
+                            <option value="30days">30 วันที่ผ่านมา</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 8%">สถานะ</th>
+                                <th style="width: 12%">รถ</th>
+                                <th style="width: 15%">หัวข้อ</th>
+                                <th style="width: 15%">ผู้โดยสาร</th>
+                                <th style="width: 15%">วัน-เวลาใช้งาน</th>
+                                <th style="width: 10%">วันที่จอง</th>
+                                <th style="width: 10%">ผู้จอง</th>
+                                <th style="width: 10%">ผู้ยกเลิก</th>
+                                <th style="width: 5%">จัดการ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="car-bookings-table">
+                            <tr>
+                                <td colspan="9" class="text-center text-gray-500 py-12">กำลังโหลด...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Reports Tab -->
+        <div id="reports-tab" class="tab-content hidden">
+            <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-6">
+                <h2 class="text-2xl font-semibold text-gray-900">รายงานและสถิติ</h2>
+                <div class="flex gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">เดือน</label>
+                        <select id="report-month-filter" class="p-2 border border-gray-300 rounded-md">
+                            <option value="all">ทุกเดือน</option>
+                            <option value="0">มกราคม</option>
+                            <option value="1">กุมภาพันธ์</option>
+                            <option value="2">มีนาคม</option>
+                            <option value="3">เมษายน</option>
+                            <option value="4">พฤษภาคม</option>
+                            <option value="5">มิถุนายน</option>
+                            <option value="6">กรกฎาคม</option>
+                            <option value="7">สิงหาคม</option>
+                            <option value="8">กันยายน</option>
+                            <option value="9">ตุลาคม</option>
+                            <option value="10">พฤศจิกายน</option>
+                            <option value="11">ธันวาคม</option>
+                        </select>
+                    </div>
+                     <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">ปี (พ.ศ.)</label>
+                        <select id="report-year-filter" class="p-2 border border-gray-300 rounded-md">
+                            <option value="all">ทุกปี</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="bg-white p-6 rounded-lg shadow-lg">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">สถิติการใช้ห้องประชุม (Confirmed)</h3>
+                    <div id="room-usage-stats"></div>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow-lg">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">สถิติการใช้รถยนต์ (Confirmed)</h3>
+                    <div id="car-usage-stats"></div>
+                </div>
+                 <div class="bg-white p-6 rounded-lg shadow-lg">
+                     <h3 class="text-lg font-semibold text-gray-800 mb-4">Top 5 ผู้จองห้องประชุม</h3>
+                     <ul id="top-room-bookers" class="top-bookers-list"></ul>
+                 </div>
+                 <div class="bg-white p-6 rounded-lg shadow-lg">
+                     <h3 class="text-lg font-semibold text-gray-800 mb-4">Top 5 ผู้จองรถยนต์</h3>
+                     <ul id="top-car-bookers" class="top-bookers-list"></ul>
+                 </div>
+            </div>
+        </div>
+
+        <!-- Rooms Tab -->
+        <div id="rooms-tab" class="tab-content hidden">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-semibold text-gray-900">จัดการห้องประชุม</h2>
+                <button id="add-room-btn" class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-md hover:bg-indigo-700">
+                    <i class="fa-solid fa-plus mr-2"></i> เพิ่มห้องใหม่
+                </button>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>ชื่อห้องประชุม</th>
+                            <th>ดำเนินการ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rooms-table">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Cars Tab -->
+        <div id="cars-tab" class="tab-content hidden">
+             <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-semibold text-gray-900">จัดการรถยนต์</h2>
+                <button id="add-car-btn" class="px-4 py-2 bg-teal-600 text-white font-semibold rounded-md hover:bg-teal-700">
+                    <i class="fa-solid fa-plus mr-2"></i> เพิ่มรถใหม่
+                </button>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>ชื่อ/ทะเบียนรถยนต์</th>
+                            <th>ดำเนินการ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cars-table">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Admins Tab -->
+        <div id="admins-tab" class="tab-content hidden">
+             <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-semibold text-gray-900">จัดการผู้ดูแลระบบ</h2>
+                <button id="add-admin-btn" class="px-4 py-2 bg-slate-600 text-white font-semibold rounded-md hover:bg-slate-700">
+                    <i class="fa-solid fa-user-plus mr-2"></i> เพิ่มผู้ดูแลใหม่
+                </button>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>อีเมล</th>
+                            <th>ดำเนินการ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admins-table">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modals -->
+    <div id="resource-modal" class="modal">
+        <div class="modal-content">
+            <h2 id="resource-modal-title" class="text-lg font-bold mb-4">เพิ่ม/แก้ไขรายการ</h2>
+            <input type="hidden" id="resource-type-input">
+            <input type="hidden" id="resource-old-name-input">
+            <div>
+                 <label id="resource-name-label" class="block text-sm font-medium text-gray-700 mb-1">ชื่อรายการ</label>
+                 <input type="text" id="resource-name-input" placeholder="ชื่อรายการ" class="w-full p-2 border border-gray-300 rounded-md mb-4">
+            </div>
+            <div class="flex justify-end space-x-2">
+                <button class="btn-cancel px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300">ยกเลิก</button>
+                <button id="submit-resource-btn" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">บันทึก</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="confirm-modal" class="modal">
+        <div class="modal-content">
+            <h2 id="confirm-modal-title" class="text-lg font-bold mb-4">ยืนยันการกระทำ</h2>
+            <p id="confirm-modal-body" class="text-gray-700">คุณแน่ใจหรือไม่?</p>
+            <div class="flex justify-end space-x-2 mt-6">
+                <button id="confirm-cancel-btn" class="btn-cancel px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300">ยกเลิก</button>
+                <button id="confirm-ok-btn" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">ยืนยัน</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="loader" class="modal bg-opacity-75">
+        <div class="flex flex-col items-center">
+            <svg class="animate-spin -ml-1 mr-3 h-10 w-10 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span class="text-white text-lg font-semibold mt-3">กำลังโหลด...</span>
+        </div>
+    </div>
+
+    <div id="message-box" class="fixed top-5 right-5 text-white py-2 px-4 rounded-lg shadow-lg z-[1002] transition-transform duration-300 translate-x-[120%]" style="display: none;"></div>
+
+    <script>
+    /**
+     * Client-side JavaScript for Admin.html
+     * @version 2.7 - Formatted for readability, Added Attendees column support and search
+     */
+    (() => {
+        // --- Version Check & Cache Clear ---
+        // ตรวจสอบว่าเวอร์ชันที่เซิร์ฟเวอร์ส่งมา ตรงกับที่ User มีไหม
+        const serverVersion = "<?= appVersion ?>";
+        const localVersion = localStorage.getItem('app_version');
+
+        if (serverVersion && localVersion !== serverVersion) {
+            console.log(`New version detected: ${serverVersion} (Old: ${localVersion}). Clearing cache.`);
+            localStorage.clear(); // เคลียร์ local storage
+            sessionStorage.clear(); // เคลียร์ session storage
+            localStorage.setItem('app_version', serverVersion); // บันทึกเวอร์ชันใหม่
+            window.location.reload(); // บังคับรีโหลดหน้าเว็บเพื่อใช้โค้ดใหม่
+            return; // หยุดการทำงานของสคริปต์เก่า
+        }
+        
+        // กรณีเข้ามาครั้งแรก
+        if (!localVersion) {
+             localStorage.setItem('app_version', serverVersion);
+        }
+
+        // --- State Management ---
+        const App = {
+            ui: {},
+            state: {
+                currentTab: 'dashboard',
+                currentBookingSubTab: 'rooms',
+                allData: {
+                    rooms: [],
+                    cars: [],
+                    admins: [],
+                    roomBookings: [],
+                    carBookings: []
+                },
+                allBookingsCache: {
+                    rooms: [],
+                    cars: []
+                },
+                confirmCallback: null,
+                reportYears: [] 
+            }
+        };
+
+        // --- Initialization ---
+        document.addEventListener('DOMContentLoaded', initializeApp);
+
+        function initializeApp() {
+            cacheUIElements();
+            setupEventListeners();
+            loadAdminData();
+        }
+
+        function cacheUIElements() {
+            const ui = App.ui;
+            
+            // Tabs
+            ui.tabs = {
+                dashboard: document.getElementById('dashboard-tab'),
+                bookings: document.getElementById('bookings-tab'),
+                reports: document.getElementById('reports-tab'),
+                rooms: document.getElementById('rooms-tab'),
+                cars: document.getElementById('cars-tab'),
+                admins: document.getElementById('admins-tab'),
+            };
+            ui.tabButtons = document.querySelectorAll('.tab-button');
+            
+            // Header
+            ui.adminUserEmail = document.getElementById('admin-user-email');
+            ui.logoutBtn = document.getElementById('logout-btn');
+            
+            // Dashboard Stats
+            ui.statsRooms = document.getElementById('stats-rooms');
+            ui.statsCars = document.getElementById('stats-cars');
+            ui.statsAdmins = document.getElementById('stats-admins');
+            ui.statsActiveBookings = document.getElementById('stats-active-bookings');
+            
+            // Bookings Tab
+            ui.bookingSubTabButtons = document.querySelectorAll('.booking-subtab-button');
+            ui.bookingSubTabs = {
+                rooms: document.getElementById('subtab-rooms'),
+                cars: document.getElementById('subtab-cars')
+            };
+            
+            // Room Booking Filters & Table
+            ui.roomBookingsTable = document.getElementById('room-bookings-table');
+            ui.roomBookingSearch = document.getElementById('room-booking-search');
+            ui.roomBookingStatusFilter = document.getElementById('room-booking-status-filter');
+            ui.roomBookingDateFilter = document.getElementById('room-booking-date-filter');
+            
+            // Car Booking Filters & Table
+            ui.carBookingsTable = document.getElementById('car-bookings-table');
+            ui.carBookingSearch = document.getElementById('car-booking-search');
+            ui.carBookingStatusFilter = document.getElementById('car-booking-status-filter');
+            ui.carBookingDateFilter = document.getElementById('car-booking-date-filter');
+            
+            // Reports Tab
+            ui.reportMonthFilter = document.getElementById('report-month-filter');
+            ui.reportYearFilter = document.getElementById('report-year-filter');
+            ui.roomUsageStats = document.getElementById('room-usage-stats');
+            ui.carUsageStats = document.getElementById('car-usage-stats');
+            ui.topRoomBookers = document.getElementById('top-room-bookers');
+            ui.topCarBookers = document.getElementById('top-car-bookers');
+            
+            // Manage Resources Tabs
+            ui.roomsTable = document.getElementById('rooms-table');
+            ui.addRoomBtn = document.getElementById('add-room-btn');
+            ui.carsTable = document.getElementById('cars-table');
+            ui.addCarBtn = document.getElementById('add-car-btn');
+            ui.adminsTable = document.getElementById('admins-table');
+            ui.addAdminBtn = document.getElementById('add-admin-btn');
+            
+            // Modals
+            ui.resourceModal = document.getElementById('resource-modal');
+            ui.resourceModalTitle = document.getElementById('resource-modal-title');
+            ui.resourceTypeInput = document.getElementById('resource-type-input');
+            ui.resourceOldNameInput = document.getElementById('resource-old-name-input');
+            ui.resourceNameLabel = document.getElementById('resource-name-label');
+            ui.resourceNameInput = document.getElementById('resource-name-input');
+            ui.submitResourceBtn = document.getElementById('submit-resource-btn');
+            
+            ui.confirmModal = document.getElementById('confirm-modal');
+            ui.confirmModalTitle = document.getElementById('confirm-modal-title');
+            ui.confirmModalBody = document.getElementById('confirm-modal-body');
+            ui.confirmOkBtn = document.getElementById('confirm-ok-btn');
+            ui.confirmCancelBtn = document.getElementById('confirm-cancel-btn');
+            
+            // Global
+            ui.loader = document.getElementById('loader');
+            ui.messageBox = document.getElementById('message-box');
+            ui.allCancelButtons = document.querySelectorAll('.btn-cancel');
+        }
+
+        // --- Event Listeners ---
+        function setupEventListeners() {
+            const ui = App.ui;
+
+            // Tab Navigation
+            ui.tabButtons.forEach(btn => {
+                btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+            });
+
+            // Booking Sub-Tab Navigation
+            ui.bookingSubTabButtons.forEach(btn => {
+                btn.addEventListener('click', () => switchBookingSubTab(btn.dataset.subtab));
+            });
+
+            // Logout
+            ui.logoutBtn.addEventListener('click', handleLogout);
+
+            // Add Buttons
+            ui.addRoomBtn.addEventListener('click', () => openResourceModal('add', 'room'));
+            ui.addCarBtn.addEventListener('click', () => openResourceModal('add', 'car'));
+            ui.addAdminBtn.addEventListener('click', () => openResourceModal('add', 'admin'));
+            ui.submitResourceBtn.addEventListener('click', handleSubmitResource);
+
+            // Modals
+            ui.allCancelButtons.forEach(btn => {
+                btn.addEventListener('click', () => btn.closest('.modal').classList.remove('flex'));
+            });
+            
+            ui.confirmOkBtn.addEventListener('click', () => {
+                if (typeof App.state.confirmCallback === 'function') {
+                    App.state.confirmCallback();
+                }
+                ui.confirmModal.classList.remove('flex');
+            });
+
+            // Search & Filters
+            ui.roomBookingSearch.addEventListener('input', () => renderRoomBookingsTable());
+            ui.roomBookingStatusFilter.addEventListener('change', () => renderRoomBookingsTable());
+            ui.roomBookingDateFilter.addEventListener('change', () => renderRoomBookingsTable());
+
+            ui.carBookingSearch.addEventListener('input', () => renderCarBookingsTable());
+            ui.carBookingStatusFilter.addEventListener('change', () => renderCarBookingsTable());
+            ui.carBookingDateFilter.addEventListener('change', () => renderCarBookingsTable());
+
+            // Report Filters
+            ui.reportMonthFilter.addEventListener('change', () => renderReportsTab());
+            ui.reportYearFilter.addEventListener('change', () => renderReportsTab());
+
+            // Dynamic listeners for tables
+            ui.roomsTable.addEventListener('click', (e) => handleTableAction(e, 'room'));
+            ui.carsTable.addEventListener('click', (e) => handleTableAction(e, 'car'));
+            ui.adminsTable.addEventListener('click', (e) => handleTableAction(e, 'admin'));
+            ui.roomBookingsTable.addEventListener('click', (e) => handleTableAction(e, 'booking-room'));
+            ui.carBookingsTable.addEventListener('click', (e) => handleTableAction(e, 'booking-car'));
+        }
+
+        // --- Data Loading & Rendering ---
+        function loadAdminData() {
+            showLoader(true);
+            google.script.run
+                .withSuccessHandler(data => {
+                    App.state.allData = data;
+                    App.ui.adminUserEmail.textContent = data.userEmail;
+                    
+                    // Process and cache bookings
+                    App.state.allBookingsCache.rooms = data.roomBookings || [];
+                    App.state.allBookingsCache.cars = data.carBookings || [];
+
+                    populateReportYears();
+                    
+                    // Initial render
+                    renderDashboard();
+                    renderRoomBookingsTable(); 
+                    renderCarBookingsTable();  
+                    renderReportsTab(); 
+                    renderRoomsTable();
+                    renderCarsTable();
+                    renderAdminsTable();
+                    
+                    showLoader(false);
+                })
+                .withFailureHandler(err => {
+                    showMessage(err.message, true);
+                    showLoader(false);
+                })
+                .getAdminDashboardData();
+        }
+
+        function renderDashboard() {
+            const { state, ui } = App;
+            const now = new Date().getTime();
+
+            const allBookings = [...state.allBookingsCache.rooms, ...state.allBookingsCache.cars];
+            const activeBookings = allBookings.filter(b => 
+                b.Status === 'Confirmed' && new Date(b.EndTime).getTime() > now
+            ).length;
+
+            ui.statsRooms.textContent = state.allData.rooms.length;
+            ui.statsCars.textContent = state.allData.cars.length;
+            ui.statsAdmins.textContent = state.allData.admins.length;
+            ui.statsActiveBookings.textContent = activeBookings;
+        }
+
+        // --- START: Report Tab Functions ---
+        function populateReportYears() {
+            const { ui, state } = App;
+            const allBookings = [...state.allBookingsCache.rooms, ...state.allBookingsCache.cars];
+            const years = new Set();
+            
+            allBookings.forEach(b => {
+                try {
+                    // Use Timestamp for report generation
+                    const year = new Date(b.Timestamp || b.StartTime).getFullYear(); 
+                    if (year > 1970) {
+                        years.add(year + 543); // Convert to Buddhist Era (พ.ศ.)
+                    }
+                } catch(e) {}
+            });
+
+            const sortedYears = Array.from(years).sort((a, b) => b - a); // Newest first
+            state.reportYears = sortedYears;
+            const currentVal = ui.reportYearFilter.value;
+
+            ui.reportYearFilter.innerHTML = '<option value="all">ทุกปี</option>'; // Reset
+            sortedYears.forEach(year => {
+                ui.reportYearFilter.innerHTML += `<option value="${year - 543}">${year}</option>`; 
+            });
+
+            if (state.reportYears.includes(parseInt(currentVal) + 543)) {
+                ui.reportYearFilter.value = currentVal;
+            }
+        }
+
+        function renderReportsTab() {
+            const { ui, state } = App;
+            const selectedMonth = ui.reportMonthFilter.value; 
+            const selectedYear = ui.reportYearFilter.value;  
+
+            const filteredRooms = filterBookingsByDate(state.allBookingsCache.rooms, selectedMonth, selectedYear, 'Timestamp'); 
+            const filteredCars = filterBookingsByDate(state.allBookingsCache.cars, selectedMonth, selectedYear, 'Timestamp'); 
+
+            const roomUsage = calculateUsage(filteredRooms, state.allData.rooms, 'resourceName');
+            const carUsage = calculateUsage(filteredCars, state.allData.cars, 'resourceName');
+            
+            const roomBookers = calculateTopUsers(filteredRooms, 'BookedBy');
+            const carBookers = calculateTopUsers(filteredCars, 'BookedBy');
+
+            renderUsageChart(ui.roomUsageStats, roomUsage, 'ชั่วโมง');
+            renderUsageChart(ui.carUsageStats, carUsage, 'ชั่วโมง');
+            renderTopBookersList(ui.topRoomBookers, roomBookers);
+            renderTopBookersList(ui.topCarBookers, carBookers);
+        }
+
+        function filterBookingsByDate(bookings, month, year, dateKey) { 
+            let filtered = bookings.filter(b => b.Status === 'Confirmed');
+
+            const getDate = (booking) => {
+                try {
+                    return new Date(booking[dateKey] || booking.StartTime); 
+                } catch(e) { return null; }
+            };
+
+            if (month !== 'all') {
+                filtered = filtered.filter(b => {
+                    const date = getDate(b);
+                    return date ? date.getMonth() == month : false;
+                });
+            }
+            if (year !== 'all') {
+                filtered = filtered.filter(b => {
+                    const date = getDate(b);
+                    return date ? date.getFullYear() == year : false;
+                });
+            }
+            return filtered;
+        }
+
+        function calculateUsage(bookings, resources, resourceKey) {
+            const stats = {};
+            resources.forEach(name => {
+                stats[name] = { hours: 0, count: 0 };
+            });
+
+            bookings.forEach(b => {
+                try {
+                    const resourceName = b[resourceKey];
+                    const start = new Date(b.StartTime).getTime();
+                    const end = new Date(b.EndTime).getTime();
+                    const durationHours = (end - start) / (1000 * 60 * 60);
+
+                    if (stats[resourceName] !== undefined) {
+                        stats[resourceName].hours += durationHours;
+                        stats[resourceName].count += 1; 
+                    }
+                } catch (e) {
+                    console.error("Error calculating duration:", e);
+                }
+            });
+
+            return Object.entries(stats)
+                .map(([name, item]) => ({ name, hours: parseFloat(item.hours.toFixed(1)), count: item.count }))
+                .sort((a, b) => b.hours - a.hours); 
+        }
+
+        function calculateTopUsers(bookings, userKey) {
+            const stats = {};
+            bookings.forEach(b => {
+                const user = b[userKey];
+                if (user) {
+                    stats[user] = (stats[user] || 0) + 1;
+                }
+            });
+
+            return Object.entries(stats)
+                .map(([name, count]) => ({ name, value: count }))
+                .sort((a, b) => b.value - a.value)
+                .slice(0, 5); 
+        }
+
+        function renderUsageChart(container, data, valueUnit) {
+            if (!data || data.length === 0) {
+                container.innerHTML = `<p class="text-gray-500">ไม่มีข้อมูลในช่วงเวลานี้</p>`;
+                return;
+            }
+
+            const maxValue = Math.max(...data.map(d => d.hours), 1); 
+            
+            container.innerHTML = `
+                <table class="report-table">
+                    <tbody>
+                        ${data.map(item => `
+                            <tr>
+                                <td class="font-medium text-gray-700 w-1/3 truncate" title="${item.name}">${item.name}</td>
+                                <td class="w-2/3">
+                                    <div class="bar-bg">
+                                        <div class="bar-fill" style="width: ${(item.hours / maxValue) * 100}%">
+                                            ${item.hours} ${valueUnit} (${item.count} ครั้ง)
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+
+        function renderTopBookersList(container, data) {
+            if (!data || data.length === 0) {
+                container.innerHTML = `<li class="text-gray-500">ไม่มีข้อมูลในช่วงเวลานี้</li>`;
+                return;
+            }
+
+            container.innerHTML = data.map(item => `
+                <li class="flex justify-between">
+                    <span class="truncate" title="${item.name}">${item.name}</span>
+                    <span class="font-bold ml-4">${item.value} ครั้ง</span>
+                </li>
+            `).join('');
+        }
+
+        // --- END: Report Tab Functions ---
+
+
+        // --- START: Booking Tab Functions ---
+        function switchBookingSubTab(subtabId) {
+            App.state.currentBookingSubTab = subtabId;
+            Object.values(App.ui.bookingSubTabs).forEach(tab => tab.classList.add('hidden'));
+            App.ui.bookingSubTabButtons.forEach(btn => btn.classList.remove('active'));
+            App.ui.bookingSubTabs[subtabId].classList.remove('hidden');
+            document.querySelector(`.booking-subtab-button[data-subtab="${subtabId}"]`).classList.add('active');
+        }
+
+        // Generic filtering logic used by both room and car tables
+        function getFilteredBookings(cache, statusFilterVal, dateFilterVal, searchTermVal) {
+            let filtered = cache;
+            const now = new Date();
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+            const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+            // 1. Filter by Status
+            if (statusFilterVal !== 'all') {
+                const nowTime = now.getTime();
+                filtered = filtered.filter(b => {
+                    const isConfirmed = b.Status === 'Confirmed';
+                    const isActive = isConfirmed && new Date(b.EndTime).getTime() > nowTime;
+                    if (statusFilterVal === 'active') return isActive;
+                    if (statusFilterVal === 'finished') return isConfirmed && !isActive;
+                    if (statusFilterVal === 'cancelled') return b.Status === 'Cancelled';
+                    return true;
+                });
+            }
+
+            // 2. Filter by Booking Date
+            if (dateFilterVal !== 'all') {
+                filtered = filtered.filter(b => {
+                    try {
+                        const bookingDate = new Date(b.Timestamp || b.StartTime); 
+                        if (dateFilterVal === 'today') return bookingDate >= today;
+                        if (dateFilterVal === '7days') return bookingDate >= sevenDaysAgo;
+                        if (dateFilterVal === '30days') return bookingDate >= thirtyDaysAgo;
+                        return true;
+                    } catch(e) { return false; }
+                });
+            }
+            
+            // 3. Filter by Search Term (including Attendees)
+            if (searchTermVal) {
+                const lowerTerm = searchTermVal.toLowerCase();
+                filtered = filtered.filter(b => 
+                    (String(b.Title).toLowerCase().includes(lowerTerm)) || 
+                    (b.BookedBy && b.BookedBy.toLowerCase().includes(lowerTerm)) ||
+                    (String(b.resourceName).toLowerCase().includes(lowerTerm)) ||
+                    (b.Attendees && String(b.Attendees).toLowerCase().includes(lowerTerm))
+                );
+            }
+
+            // 4. Sort by Timestamp (Newest first)
+            filtered.sort((a, b) => {
+                const dateA = new Date(a.Timestamp || a.StartTime).getTime();
+                const dateB = new Date(b.Timestamp || b.StartTime).getTime();
+                return dateB - dateA; 
+            });
+
+            return filtered;
+        }
+
+        function renderRoomBookingsTable() {
+            const { ui, state } = App;
+            const tableBody = ui.roomBookingsTable;
+            
+            const statusFilter = ui.roomBookingStatusFilter.value;
+            const dateFilter = ui.roomBookingDateFilter.value;
+            const searchTerm = ui.roomBookingSearch.value;
+
+            const filteredBookings = getFilteredBookings(
+                state.allBookingsCache.rooms,
+                statusFilter,
+                dateFilter,
+                searchTerm
+            );
+
+            if (filteredBookings.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="9" class="text-center text-gray-500 py-12">ไม่พบข้อมูลการจองที่ตรงเงื่อนไข</td></tr>`;
+                return;
+            }
+
+            const now = new Date().getTime();
+            tableBody.innerHTML = filteredBookings.map(b => {
+                const end = new Date(b.EndTime);
+                const isConfirmed = b.Status === 'Confirmed';
+                const isActive = isConfirmed && end.getTime() > now;
+                const statusBadge = getStatusBadge(b.Status, isActive);
+                
+                let cancelledInfoHtml = '-';
+                if (b.Status === 'Cancelled') {
+                    cancelledInfoHtml = formatCancellationInfo(b.CancelledBy, b.CancelledTimestamp);
+                }
+
+                return `
+                    <tr>
+                        <td>${statusBadge}</td>
+                        <td class="truncate" title="${b.resourceName}">${b.resourceName || '-'}</td>
+                        <td class="truncate" title="${b.Title}">${b.Title || '-'}</td>
+                        <td class="truncate text-xs" title="${b.Attendees}">${b.Attendees || '-'}</td>
+                        <td>${formatBookingDate(new Date(b.StartTime), end)}</td>
+                        <td>${formatTimestamp(b.Timestamp)}</td>
+                        <td class="truncate" title="${b.BookedBy}">${b.BookedBy || '-'}</td>
+                        <td class="truncate" title="${cancelledInfoHtml.replace(/<[^>]*>?/gm, '')}">${cancelledInfoHtml}</td>
+                        <td>
+                            ${isConfirmed ? `<button data-action="cancel" data-id="${b.BookingID}" class="text-red-600 hover:text-red-800 text-sm font-medium">ยกเลิก</button>` : '-'}
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function renderCarBookingsTable() {
+            const { ui, state } = App;
+            const tableBody = ui.carBookingsTable;
+
+            const statusFilter = ui.carBookingStatusFilter.value;
+            const dateFilter = ui.carBookingDateFilter.value;
+            const searchTerm = ui.carBookingSearch.value;
+
+            const filteredBookings = getFilteredBookings(
+                state.allBookingsCache.cars,
+                statusFilter,
+                dateFilter,
+                searchTerm
+            );
+
+            if (filteredBookings.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="9" class="text-center text-gray-500 py-12">ไม่พบข้อมูลการจองที่ตรงเงื่อนไข</td></tr>`;
+                return;
+            }
+
+            const now = new Date().getTime();
+            tableBody.innerHTML = filteredBookings.map(b => {
+                const end = new Date(b.EndTime);
+                const isConfirmed = b.Status === 'Confirmed';
+                const isActive = isConfirmed && end.getTime() > now;
+                const statusBadge = getStatusBadge(b.Status, isActive);
+
+                let cancelledInfoHtml = '-';
+                if (b.Status === 'Cancelled') {
+                    cancelledInfoHtml = formatCancellationInfo(b.CancelledBy, b.CancelledTimestamp);
+                }
+
+                return `
+                    <tr>
+                        <td>${statusBadge}</td>
+                        <td class="truncate" title="${b.resourceName}">${b.resourceName || '-'}</td>
+                        <td class="truncate" title="${b.Title}">${b.Title || '-'}</td>
+                        <td class="truncate text-xs" title="${b.Attendees}">${b.Attendees || '-'}</td>
+                        <td>${formatBookingDate(new Date(b.StartTime), end)}</td>
+                        <td>${formatTimestamp(b.Timestamp)}</td>
+                        <td class="truncate" title="${b.BookedBy}">${b.BookedBy || '-'}</td>
+                        <td class="truncate" title="${cancelledInfoHtml.replace(/<[^>]*>?/gm, '')}">${cancelledInfoHtml}</td>
+                        <td>
+                            ${isConfirmed ? `<button data-action="cancel" data-id="${b.BookingID}" class="text-red-600 hover:text-red-800 text-sm font-medium">ยกเลิก</button>` : '-'}
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // --- END: Booking Tab Functions ---
+
+
+        function renderRoomsTable() {
+            const { ui, state } = App;
+            const tableBody = ui.roomsTable;
+            const rooms = state.allData.rooms;
+
+            if (rooms.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="2" class="text-center text-gray-500 py-12">ยังไม่มีห้องประชุม</td></tr>`;
+                return;
+            }
+            tableBody.innerHTML = rooms.map(room => `
+                <tr>
+                    <td>${room}</td>
+                    <td class="space-x-4">
+                        <button data-action="edit" data-id="${room}" class="text-indigo-600 hover:text-indigo-800 text-sm font-medium">แก้ไข</button>
+                        <button data-action="delete" data-id="${room}" class="text-red-600 hover:text-red-800 text-sm font-medium">ลบ</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function renderCarsTable() {
+            const { ui, state } = App;
+            const tableBody = ui.carsTable;
+            const cars = state.allData.cars;
+
+            if (cars.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="2" class="text-center text-gray-500 py-12">ยังไม่มีรถยนต์</td></tr>`;
+                return;
+            }
+            tableBody.innerHTML = cars.map(car => `
+                <tr>
+                    <td>${car}</td>
+                    <td class="space-x-4">
+                        <button data-action="edit" data-id="${car}" class="text-indigo-600 hover:text-indigo-800 text-sm font-medium">แก้ไข</button>
+                        <button data-action="delete" data-id="${car}" class="text-red-600 hover:text-red-800 text-sm font-medium">ลบ</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function renderAdminsTable() {
+            const { ui, state } = App;
+            const tableBody = ui.adminsTable;
+            const admins = state.allData.admins;
+            const currentUser = state.allData.userEmail.toLowerCase();
+
+            if (admins.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="2" class="text-center text-gray-500 py-12">ยังไม่มีผู้ดูแล</td></tr>`;
+                return;
+            }
+            tableBody.innerHTML = admins.map(admin => {
+                const isCurrentUser = admin.toLowerCase() === currentUser;
+                return `
+                <tr>
+                    <td>${admin} ${isCurrentUser ? '<span class="text-xs text-indigo-600 font-medium">(คุณ)</span>' : ''}</td>
+                    <td>
+                        ${!isCurrentUser ? `
+                        <button data-action="delete" data-id="${admin}" class="text-red-600 hover:text-red-800 text-sm font-medium">ลบ</button>
+                        ` : '<span class="text-xs text-gray-500">ไม่สามารถลบตัวเอง</span>'}
+                    </td>
+                </tr>
+            `}).join('');
+        }
+
+        // --- Actions ---
+
+        function switchTab(tabId) {
+            App.state.currentTab = tabId;
+            // Hide all content
+            Object.values(App.ui.tabs).forEach(tab => tab.classList.add('hidden'));
+            // Deactivate all buttons
+            App.ui.tabButtons.forEach(btn => btn.classList.remove('active'));
+            // Show active content and button
+            App.ui.tabs[tabId].classList.remove('hidden');
+            document.querySelector(`.tab-button[data-tab="${tabId}"]`).classList.add('active');
+        }
+
+        function handleLogout() {
+            showConfirmation('ยืนยันการออกจากระบบ', 'คุณต้องการออกจาก Admin Panel และกลับไปหน้าหลักหรือไม่?', () => {
+                showLoader(true);
+                google.script.run
+                    .withSuccessHandler(url => {
+                        window.open(url, '_top');
+                    })
+                    .withFailureHandler(err => {
+                        showMessage(err.message, true);
+                        showLoader(false);
+                    })
+                    .getWebAppUrl();
+            });
+        }
+
+        function openResourceModal(mode, type, name = '') {
+            const { ui } = App;
+            ui.resourceTypeInput.value = type;
+            ui.resourceOldNameInput.value = name;
+            
+            let title = '';
+            let label = '';
+            let placeholder = '';
+            
+            if (type === 'room') {
+                title = (mode === 'add') ? 'เพิ่มห้องประชุมใหม่' : 'แก้ไขชื่อห้องประชุม';
+                label = (mode === 'add') ? 'ชื่อห้องประชุม' : 'ชื่อห้องประชุมใหม่';
+                placeholder = 'เช่น, ห้องประชุมเล็ก';
+            } else if (type === 'car') {
+                title = (mode === 'add') ? 'เพิ่มรถยนต์ใหม่' : 'แก้ไขชื่อรถยนต์';
+                label = (mode === 'add') ? 'ชื่อ/ทะเบียนรถ' : 'ชื่อ/ทะเบียนรถใหม่';
+                placeholder = 'เช่น, Toyota Vios กท-1234';
+            } else if (type === 'admin') {
+                title = 'เพิ่มผู้ดูแลใหม่';
+                label = 'อีเมลผู้ดูแล';
+                placeholder = 'เช่น, user@example.com';
+            }
+            
+            ui.resourceModalTitle.textContent = title;
+            ui.resourceNameLabel.textContent = label;
+            ui.resourceNameInput.placeholder = placeholder;
+            ui.resourceNameInput.value = (mode === 'edit') ? name : '';
+            
+            ui.resourceModal.classList.add('flex');
+            ui.resourceNameInput.focus();
+        }
+
+        function handleSubmitResource() {
+            const { ui } = App;
+            const type = ui.resourceTypeInput.value;
+            const newName = ui.resourceNameInput.value.trim();
+            const oldName = ui.resourceOldNameInput.value;
+            const mode = oldName ? 'edit' : 'add';
+
+            if (!newName) {
+                showMessage('กรุณากรอกข้อมูล', true);
+                return;
+            }
+
+            let serverFunction = '';
+            let args = [];
+
+            if (mode === 'add') {
+                if (type === 'room') serverFunction = 'addRoom';
+                else if (type === 'car') serverFunction = 'addCar';
+                else if (type === 'admin') serverFunction = 'addAdmin';
+                args = [newName];
+            } else { // mode === 'edit'
+                if (newName === oldName) {
+                     ui.resourceModal.classList.remove('flex');
+                     return; // No change
+                }
+                if (type === 'room') serverFunction = 'updateRoom';
+                else if (type === 'car') serverFunction = 'updateCar';
+                args = [oldName, newName];
+            }
+
+            if (!serverFunction) return;
+
+            showLoader(true);
+            google.script.run
+                .withSuccessHandler(res => {
+                    showMessage(res.message);
+                    ui.resourceModal.classList.remove('flex');
+                    
+                    // Reload ALL DATA to reflect changes everywhere
+                    loadAdminData();
+                })
+                .withFailureHandler(err => {
+                    showMessage(err.message, true);
+                    showLoader(false);
+                })
+                [serverFunction](...args);
+        }
+
+        function handleTableAction(event, type) {
+            const target = event.target.closest('button');
+            if (!target) return;
+
+            const action = target.dataset.action;
+            const id = target.dataset.id;
+            
+            if (action === 'edit') {
+                openResourceModal('edit', type, id);
+            } else if (action === 'delete') {
+                handleDelete(id, type);
+            } else if (action === 'cancel') {
+                const bookingType = (type === 'booking-room') ? 'room' : 'car';
+                handleCancelBooking(id, bookingType);
+            }
+        }
+
+        function handleDelete(id, type) {
+            let title = '';
+            let body = '';
+            let serverFunction = '';
+
+            if (type === 'room') {
+                title = 'ยืนยันการลบห้องประชุม';
+                body = `คุณแน่ใจหรือไม่ว่าต้องการลบห้อง <strong>"${id}"</strong>? (การจองที่เกี่ยวข้องทั้งหมดจะยังคงอยู่ แต่การจองที่ Active จะถูกตรวจสอบ)`;
+                serverFunction = 'deleteRoom';
+            } else if (type === 'car') {
+                title = 'ยืนยันการลบรถยนต์';
+                body = `คุณแน่ใจหรือไม่ว่าต้องการลบรถ <strong>"${id}"</strong>? (การจองที่เกี่ยวข้องทั้งหมดจะยังคงอยู่ แต่การจองที่ Active จะถูกตรวจสอบ)`;
+                serverFunction = 'deleteCar';
+            } else if (type === 'admin') {
+                title = 'ยืนยันการลบผู้ดูแล';
+                body = `คุณแน่ใจหรือไม่ว่าต้องการลบ <strong>"${id}"</strong> ออกจากรายชื่อผู้ดูแล?`;
+                serverFunction = 'deleteAdmin';
+            } else {
+                return;
+            }
+
+            showConfirmation(title, body, () => {
+                showLoader(true);
+                google.script.run
+                    .withSuccessHandler(res => {
+                        showMessage(res.message);
+                        loadAdminData();
+                    })
+                    .withFailureHandler(err => {
+                        showMessage(err.message, true);
+                        showLoader(false);
+                    })
+                    [serverFunction](id);
+            });
+        }
+
+        function handleCancelBooking(bookingId, bookingType) {
+            const title = 'ยืนยันการยกเลิกการจอง';
+            const body = `คุณแน่ใจหรือไม่ว่าต้องการยกเลิกการจอง ID: <strong>"${bookingId}"</strong>?`;
+            const serverFunction = bookingType === 'room' ? 'cancelRoomBooking' : 'cancelCarBooking';
+
+            showConfirmation(title, body, () => {
+                showLoader(true);
+                google.script.run
+                    .withSuccessHandler(res => {
+                        showMessage(res.message);
+                        
+                        // We receive new bookings data in 'res' from server
+                        App.state.allData.roomBookings = res.roomBookings;
+                        App.state.allData.carBookings = res.carBookings;
+                        App.state.allBookingsCache.rooms = res.roomBookings;
+                        App.state.allBookingsCache.cars = res.carBookings;
+                        
+                        // Re-render
+                        renderRoomBookingsTable(); 
+                        renderCarBookingsTable();  
+                        renderDashboard(); 
+                        renderReportsTab(); 
+                        showLoader(false);
+                    })
+                    .withFailureHandler(err => {
+                        showMessage(err.message, true);
+                        showLoader(false);
+                    })
+                    [serverFunction](bookingId);
+            });
+        }
+
+
+        // --- UI Utilities ---
+        
+        function getStatusBadge(status, isActive) {
+            if (isActive) {
+                return `<span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Active</span>`;
+            } else if (status === 'Confirmed') {
+                return `<span class="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-700">Finished</span>`;
+            } else { // Cancelled
+                return `<span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">Cancelled</span>`;
+            }
+        }
+
+        function formatCancellationInfo(cancelledBy, isoTimestamp) {
+            if (!cancelledBy) {
+                return '<span class="text-red-600">Cancelled</span>';
+            }
+            
+            let datePart = '';
+            if (isoTimestamp) {
+                try {
+                    const date = new Date(isoTimestamp);
+                    const options = { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Bangkok' };
+                    datePart = date.toLocaleDateString('th-TH', options);
+                } catch (e) {
+                    datePart = 'Invalid Date';
+                }
+            }
+            
+            return `<span class="text-red-600 font-medium">${cancelledBy} (${datePart})</span>`;
+        }
+
+        function formatTimestamp(isoString) {
+            if (!isoString) {
+                return '<span class="text-xs text-gray-500">N/A</span>';
+            }
+            try {
+                const date = new Date(isoString);
+                if (isNaN(date)) return '<span class="text-xs text-gray-500">Invalid Date</span>';
+                
+                const options = { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Bangkok' };
+                const datePart = date.toLocaleDateString('th-TH', options);
+                const timePart = date.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok' });
+                return `${datePart} <span class="text-xs text-gray-600">${timePart}</span>`;
+            } catch (e) {
+                console.error("Error formatting timestamp:", isoString, e);
+                return '<span class="text-xs text-gray-500">Error</span>';
+            }
+        }
+
+        function formatBookingDate(start, end) {
+            try {
+                const options = { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Bangkok' };
+                const datePart = start.toLocaleDateString('th-TH', options);
+                const timePart = `${start.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok' })} - ${end.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok' })}`;
+                return `${datePart} <span class="text-xs text-gray-600">${timePart}</span>`;
+            } catch (e) {
+                console.error("Error formatting booking date:", start, end, e);
+                return "Date Error";
+            }
+        }
+
+        const showLoader = (show) => {
+            App.ui.loader.classList.toggle('flex', show);
+        };
+        
+        const showMessage = (message, isError = false) => {
+            const { ui } = App;
+            ui.messageBox.textContent = message;
+            ui.messageBox.className = `fixed top-5 right-5 text-white py-2 px-4 rounded-lg shadow-lg z-[1002] transition-transform duration-300 ${isError ? 'bg-red-500' : 'bg-green-500'}`;
+            ui.messageBox.style.display = 'block';
+            setTimeout(() => ui.messageBox.classList.remove('translate-x-[120%]'), 10);
+            setTimeout(() => {
+                ui.messageBox.classList.add('translate-x-[120%]');
+                setTimeout(() => ui.messageBox.style.display = 'none', 300);
+            }, 4000);
+        };
+
+        const showConfirmation = (title, body, onConfirm) => {
+            const { ui } = App;
+            ui.confirmModalTitle.textContent = title;
+            ui.confirmModalBody.innerHTML = body;
+            App.state.confirmCallback = onConfirm;
+            ui.confirmModal.classList.add('flex');
+        };
+
+    })();
+    </script>
+</body>
+</html>
