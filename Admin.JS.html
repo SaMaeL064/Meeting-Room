@@ -1,0 +1,893 @@
+<script>
+/**
+ * Client-side JavaScript for Admin.html
+ * @version 2.7 - Formatted for readability, Added Attendees column support and search
+ */
+(() => {
+    // --- State Management ---
+    const App = {
+        ui: {},
+        state: {
+            currentTab: 'dashboard',
+            currentBookingSubTab: 'rooms',
+            allData: {
+                rooms: [],
+                cars: [],
+                admins: [],
+                roomBookings: [],
+                carBookings: []
+            },
+            allBookingsCache: {
+                rooms: [],
+                cars: []
+            },
+            confirmCallback: null,
+            reportYears: [] 
+        }
+    };
+
+    // --- Initialization ---
+    document.addEventListener('DOMContentLoaded', initializeApp);
+
+    function initializeApp() {
+        cacheUIElements();
+        setupEventListeners();
+        loadAdminData();
+    }
+
+    function cacheUIElements() {
+        const ui = App.ui;
+        
+        // Tabs
+        ui.tabs = {
+            dashboard: document.getElementById('dashboard-tab'),
+            bookings: document.getElementById('bookings-tab'),
+            reports: document.getElementById('reports-tab'),
+            rooms: document.getElementById('rooms-tab'),
+            cars: document.getElementById('cars-tab'),
+            admins: document.getElementById('admins-tab'),
+        };
+        ui.tabButtons = document.querySelectorAll('.tab-button');
+        
+        // Header
+        ui.adminUserEmail = document.getElementById('admin-user-email');
+        ui.logoutBtn = document.getElementById('logout-btn');
+        
+        // Dashboard Stats
+        ui.statsRooms = document.getElementById('stats-rooms');
+        ui.statsCars = document.getElementById('stats-cars');
+        ui.statsAdmins = document.getElementById('stats-admins');
+        ui.statsActiveBookings = document.getElementById('stats-active-bookings');
+        
+        // Bookings Tab
+        ui.bookingSubTabButtons = document.querySelectorAll('.booking-subtab-button');
+        ui.bookingSubTabs = {
+            rooms: document.getElementById('subtab-rooms'),
+            cars: document.getElementById('subtab-cars')
+        };
+        
+        // Room Booking Filters & Table
+        ui.roomBookingsTable = document.getElementById('room-bookings-table');
+        ui.roomBookingSearch = document.getElementById('room-booking-search');
+        ui.roomBookingStatusFilter = document.getElementById('room-booking-status-filter');
+        ui.roomBookingDateFilter = document.getElementById('room-booking-date-filter');
+        
+        // Car Booking Filters & Table
+        ui.carBookingsTable = document.getElementById('car-bookings-table');
+        ui.carBookingSearch = document.getElementById('car-booking-search');
+        ui.carBookingStatusFilter = document.getElementById('car-booking-status-filter');
+        ui.carBookingDateFilter = document.getElementById('car-booking-date-filter');
+        
+        // Reports Tab
+        ui.reportMonthFilter = document.getElementById('report-month-filter');
+        ui.reportYearFilter = document.getElementById('report-year-filter');
+        ui.roomUsageStats = document.getElementById('room-usage-stats');
+        ui.carUsageStats = document.getElementById('car-usage-stats');
+        ui.topRoomBookers = document.getElementById('top-room-bookers');
+        ui.topCarBookers = document.getElementById('top-car-bookers');
+        
+        // Manage Resources Tabs
+        ui.roomsTable = document.getElementById('rooms-table');
+        ui.addRoomBtn = document.getElementById('add-room-btn');
+        ui.carsTable = document.getElementById('cars-table');
+        ui.addCarBtn = document.getElementById('add-car-btn');
+        ui.adminsTable = document.getElementById('admins-table');
+        ui.addAdminBtn = document.getElementById('add-admin-btn');
+        
+        // Modals
+        ui.resourceModal = document.getElementById('resource-modal');
+        ui.resourceModalTitle = document.getElementById('resource-modal-title');
+        ui.resourceTypeInput = document.getElementById('resource-type-input');
+        ui.resourceOldNameInput = document.getElementById('resource-old-name-input');
+        ui.resourceNameLabel = document.getElementById('resource-name-label');
+        ui.resourceNameInput = document.getElementById('resource-name-input');
+        ui.submitResourceBtn = document.getElementById('submit-resource-btn');
+        
+        ui.confirmModal = document.getElementById('confirm-modal');
+        ui.confirmModalTitle = document.getElementById('confirm-modal-title');
+        ui.confirmModalBody = document.getElementById('confirm-modal-body');
+        ui.confirmOkBtn = document.getElementById('confirm-ok-btn');
+        ui.confirmCancelBtn = document.getElementById('confirm-cancel-btn');
+        
+        // Global
+        ui.loader = document.getElementById('loader');
+        ui.messageBox = document.getElementById('message-box');
+        ui.allCancelButtons = document.querySelectorAll('.btn-cancel');
+    }
+
+    // --- Event Listeners ---
+    function setupEventListeners() {
+        const ui = App.ui;
+
+        // Tab Navigation
+        ui.tabButtons.forEach(btn => {
+            btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+        });
+
+        // Booking Sub-Tab Navigation
+        ui.bookingSubTabButtons.forEach(btn => {
+            btn.addEventListener('click', () => switchBookingSubTab(btn.dataset.subtab));
+        });
+
+        // Logout
+        ui.logoutBtn.addEventListener('click', handleLogout);
+
+        // Add Buttons
+        ui.addRoomBtn.addEventListener('click', () => openResourceModal('add', 'room'));
+        ui.addCarBtn.addEventListener('click', () => openResourceModal('add', 'car'));
+        ui.addAdminBtn.addEventListener('click', () => openResourceModal('add', 'admin'));
+        ui.submitResourceBtn.addEventListener('click', handleSubmitResource);
+
+        // Modals
+        ui.allCancelButtons.forEach(btn => {
+            btn.addEventListener('click', () => btn.closest('.modal').classList.remove('flex'));
+        });
+        
+        ui.confirmOkBtn.addEventListener('click', () => {
+            if (typeof App.state.confirmCallback === 'function') {
+                App.state.confirmCallback();
+            }
+            ui.confirmModal.classList.remove('flex');
+        });
+
+        // Search & Filters
+        ui.roomBookingSearch.addEventListener('input', () => renderRoomBookingsTable());
+        ui.roomBookingStatusFilter.addEventListener('change', () => renderRoomBookingsTable());
+        ui.roomBookingDateFilter.addEventListener('change', () => renderRoomBookingsTable());
+
+        ui.carBookingSearch.addEventListener('input', () => renderCarBookingsTable());
+        ui.carBookingStatusFilter.addEventListener('change', () => renderCarBookingsTable());
+        ui.carBookingDateFilter.addEventListener('change', () => renderCarBookingsTable());
+
+        // Report Filters
+        ui.reportMonthFilter.addEventListener('change', () => renderReportsTab());
+        ui.reportYearFilter.addEventListener('change', () => renderReportsTab());
+
+        // Dynamic listeners for tables
+        ui.roomsTable.addEventListener('click', (e) => handleTableAction(e, 'room'));
+        ui.carsTable.addEventListener('click', (e) => handleTableAction(e, 'car'));
+        ui.adminsTable.addEventListener('click', (e) => handleTableAction(e, 'admin'));
+        ui.roomBookingsTable.addEventListener('click', (e) => handleTableAction(e, 'booking-room'));
+        ui.carBookingsTable.addEventListener('click', (e) => handleTableAction(e, 'booking-car'));
+    }
+
+    // --- Data Loading & Rendering ---
+    function loadAdminData() {
+        showLoader(true);
+        google.script.run
+            .withSuccessHandler(data => {
+                App.state.allData = data;
+                App.ui.adminUserEmail.textContent = data.userEmail;
+                
+                // Process and cache bookings
+                App.state.allBookingsCache.rooms = data.roomBookings || [];
+                App.state.allBookingsCache.cars = data.carBookings || [];
+
+                populateReportYears();
+                
+                // Initial render
+                renderDashboard();
+                renderRoomBookingsTable(); 
+                renderCarBookingsTable();  
+                renderReportsTab(); 
+                renderRoomsTable();
+                renderCarsTable();
+                renderAdminsTable();
+                
+                showLoader(false);
+            })
+            .withFailureHandler(err => {
+                showMessage(err.message, true);
+                showLoader(false);
+            })
+            .getAdminDashboardData();
+    }
+
+    function renderDashboard() {
+        const { state, ui } = App;
+        const now = new Date().getTime();
+
+        const allBookings = [...state.allBookingsCache.rooms, ...state.allBookingsCache.cars];
+        const activeBookings = allBookings.filter(b => 
+            b.Status === 'Confirmed' && new Date(b.EndTime).getTime() > now
+        ).length;
+
+        ui.statsRooms.textContent = state.allData.rooms.length;
+        ui.statsCars.textContent = state.allData.cars.length;
+        ui.statsAdmins.textContent = state.allData.admins.length;
+        ui.statsActiveBookings.textContent = activeBookings;
+    }
+
+    // --- START: Report Tab Functions ---
+    function populateReportYears() {
+        const { ui, state } = App;
+        const allBookings = [...state.allBookingsCache.rooms, ...state.allBookingsCache.cars];
+        const years = new Set();
+        
+        allBookings.forEach(b => {
+            try {
+                // Use Timestamp for report generation
+                const year = new Date(b.Timestamp || b.StartTime).getFullYear(); 
+                if (year > 1970) {
+                   years.add(year + 543); // Convert to Buddhist Era (พ.ศ.)
+                }
+            } catch(e) {}
+        });
+
+        const sortedYears = Array.from(years).sort((a, b) => b - a); // Newest first
+        state.reportYears = sortedYears;
+        const currentVal = ui.reportYearFilter.value;
+
+        ui.reportYearFilter.innerHTML = '<option value="all">ทุกปี</option>'; // Reset
+        sortedYears.forEach(year => {
+            ui.reportYearFilter.innerHTML += `<option value="${year - 543}">${year}</option>`; 
+        });
+
+        if (state.reportYears.includes(parseInt(currentVal) + 543)) {
+            ui.reportYearFilter.value = currentVal;
+        }
+    }
+
+    function renderReportsTab() {
+        const { ui, state } = App;
+        const selectedMonth = ui.reportMonthFilter.value; 
+        const selectedYear = ui.reportYearFilter.value;  
+
+        const filteredRooms = filterBookingsByDate(state.allBookingsCache.rooms, selectedMonth, selectedYear, 'Timestamp'); 
+        const filteredCars = filterBookingsByDate(state.allBookingsCache.cars, selectedMonth, selectedYear, 'Timestamp'); 
+
+        const roomUsage = calculateUsage(filteredRooms, state.allData.rooms, 'resourceName');
+        const carUsage = calculateUsage(filteredCars, state.allData.cars, 'resourceName');
+        
+        const roomBookers = calculateTopUsers(filteredRooms, 'BookedBy');
+        const carBookers = calculateTopUsers(filteredCars, 'BookedBy');
+
+        renderUsageChart(ui.roomUsageStats, roomUsage, 'ชั่วโมง');
+        renderUsageChart(ui.carUsageStats, carUsage, 'ชั่วโมง');
+        renderTopBookersList(ui.topRoomBookers, roomBookers);
+        renderTopBookersList(ui.topCarBookers, carBookers);
+    }
+
+    function filterBookingsByDate(bookings, month, year, dateKey) { 
+        let filtered = bookings.filter(b => b.Status === 'Confirmed');
+
+        const getDate = (booking) => {
+            try {
+                return new Date(booking[dateKey] || booking.StartTime); 
+            } catch(e) { return null; }
+        };
+
+        if (month !== 'all') {
+            filtered = filtered.filter(b => {
+                const date = getDate(b);
+                return date ? date.getMonth() == month : false;
+            });
+        }
+        if (year !== 'all') {
+            filtered = filtered.filter(b => {
+                const date = getDate(b);
+                return date ? date.getFullYear() == year : false;
+            });
+        }
+        return filtered;
+    }
+
+    function calculateUsage(bookings, resources, resourceKey) {
+        const stats = {};
+        resources.forEach(name => {
+            stats[name] = { hours: 0, count: 0 };
+        });
+
+        bookings.forEach(b => {
+            try {
+                const resourceName = b[resourceKey];
+                const start = new Date(b.StartTime).getTime();
+                const end = new Date(b.EndTime).getTime();
+                const durationHours = (end - start) / (1000 * 60 * 60);
+
+                if (stats[resourceName] !== undefined) {
+                    stats[resourceName].hours += durationHours;
+                    stats[resourceName].count += 1; 
+                }
+            } catch (e) {
+                console.error("Error calculating duration:", e);
+            }
+        });
+
+        return Object.entries(stats)
+            .map(([name, item]) => ({ name, hours: parseFloat(item.hours.toFixed(1)), count: item.count }))
+            .sort((a, b) => b.hours - a.hours); 
+    }
+
+    function calculateTopUsers(bookings, userKey) {
+        const stats = {};
+        bookings.forEach(b => {
+            const user = b[userKey];
+            if (user) {
+                stats[user] = (stats[user] || 0) + 1;
+            }
+        });
+
+        return Object.entries(stats)
+            .map(([name, count]) => ({ name, value: count }))
+            .sort((a, b) => b.value - a.value)
+            .slice(0, 5); 
+    }
+
+    function renderUsageChart(container, data, valueUnit) {
+        if (!data || data.length === 0) {
+            container.innerHTML = `<p class="text-gray-500">ไม่มีข้อมูลในช่วงเวลานี้</p>`;
+            return;
+        }
+
+        const maxValue = Math.max(...data.map(d => d.hours), 1); 
+        
+        container.innerHTML = `
+            <table class="report-table">
+                <tbody>
+                    ${data.map(item => `
+                        <tr>
+                            <td class="font-medium text-gray-700 w-1/3 truncate" title="${item.name}">${item.name}</td>
+                            <td class="w-2/3">
+                                <div class="bar-bg">
+                                    <div class="bar-fill" style="width: ${(item.hours / maxValue) * 100}%">
+                                        ${item.hours} ${valueUnit} (${item.count} ครั้ง)
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+    }
+
+    function renderTopBookersList(container, data) {
+        if (!data || data.length === 0) {
+            container.innerHTML = `<li class="text-gray-500">ไม่มีข้อมูลในช่วงเวลานี้</li>`;
+            return;
+        }
+
+        container.innerHTML = data.map(item => `
+            <li class="flex justify-between">
+                <span class="truncate" title="${item.name}">${item.name}</span>
+                <span class="font-bold ml-4">${item.value} ครั้ง</span>
+            </li>
+        `).join('');
+    }
+
+    // --- END: Report Tab Functions ---
+
+
+    // --- START: Booking Tab Functions ---
+    function switchBookingSubTab(subtabId) {
+        App.state.currentBookingSubTab = subtabId;
+        Object.values(App.ui.bookingSubTabs).forEach(tab => tab.classList.add('hidden'));
+        App.ui.bookingSubTabButtons.forEach(btn => btn.classList.remove('active'));
+        App.ui.bookingSubTabs[subtabId].classList.remove('hidden');
+        document.querySelector(`.booking-subtab-button[data-subtab="${subtabId}"]`).classList.add('active');
+    }
+
+    // Generic filtering logic used by both room and car tables
+    function getFilteredBookings(cache, statusFilterVal, dateFilterVal, searchTermVal) {
+        let filtered = cache;
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+        // 1. Filter by Status
+        if (statusFilterVal !== 'all') {
+            const nowTime = now.getTime();
+            filtered = filtered.filter(b => {
+                const isConfirmed = b.Status === 'Confirmed';
+                const isActive = isConfirmed && new Date(b.EndTime).getTime() > nowTime;
+                if (statusFilterVal === 'active') return isActive;
+                if (statusFilterVal === 'finished') return isConfirmed && !isActive;
+                if (statusFilterVal === 'cancelled') return b.Status === 'Cancelled';
+                return true;
+            });
+        }
+
+        // 2. Filter by Booking Date
+        if (dateFilterVal !== 'all') {
+            filtered = filtered.filter(b => {
+                try {
+                    const bookingDate = new Date(b.Timestamp || b.StartTime); 
+                    if (dateFilterVal === 'today') return bookingDate >= today;
+                    if (dateFilterVal === '7days') return bookingDate >= sevenDaysAgo;
+                    if (dateFilterVal === '30days') return bookingDate >= thirtyDaysAgo;
+                    return true;
+                } catch(e) { return false; }
+            });
+        }
+        
+        // 3. Filter by Search Term (including Attendees)
+        if (searchTermVal) {
+            const lowerTerm = searchTermVal.toLowerCase();
+            filtered = filtered.filter(b => 
+                (String(b.Title).toLowerCase().includes(lowerTerm)) || 
+                (b.BookedBy && b.BookedBy.toLowerCase().includes(lowerTerm)) ||
+                (String(b.resourceName).toLowerCase().includes(lowerTerm)) ||
+                (b.Attendees && String(b.Attendees).toLowerCase().includes(lowerTerm))
+            );
+        }
+
+        // 4. Sort by Timestamp (Newest first)
+        filtered.sort((a, b) => {
+            const dateA = new Date(a.Timestamp || a.StartTime).getTime();
+            const dateB = new Date(b.Timestamp || b.StartTime).getTime();
+            return dateB - dateA; 
+        });
+
+        return filtered;
+    }
+
+    function renderRoomBookingsTable() {
+        const { ui, state } = App;
+        const tableBody = ui.roomBookingsTable;
+        
+        const statusFilter = ui.roomBookingStatusFilter.value;
+        const dateFilter = ui.roomBookingDateFilter.value;
+        const searchTerm = ui.roomBookingSearch.value;
+
+        const filteredBookings = getFilteredBookings(
+            state.allBookingsCache.rooms,
+            statusFilter,
+            dateFilter,
+            searchTerm
+        );
+
+        if (filteredBookings.length === 0) {
+            tableBody.innerHTML = `<tr><td colspan="9" class="text-center text-gray-500 py-12">ไม่พบข้อมูลการจองที่ตรงเงื่อนไข</td></tr>`;
+            return;
+        }
+
+        const now = new Date().getTime();
+        tableBody.innerHTML = filteredBookings.map(b => {
+            const end = new Date(b.EndTime);
+            const isConfirmed = b.Status === 'Confirmed';
+            const isActive = isConfirmed && end.getTime() > now;
+            const statusBadge = getStatusBadge(b.Status, isActive);
+            
+            let cancelledInfoHtml = '-';
+            if (b.Status === 'Cancelled') {
+                cancelledInfoHtml = formatCancellationInfo(b.CancelledBy, b.CancelledTimestamp);
+            }
+
+            return `
+                <tr>
+                    <td>${statusBadge}</td>
+                    <td class="truncate" title="${b.resourceName}">${b.resourceName || '-'}</td>
+                    <td class="truncate" title="${b.Title}">${b.Title || '-'}</td>
+                    <td class="truncate text-xs" title="${b.Attendees}">${b.Attendees || '-'}</td>
+                    <td>${formatBookingDate(new Date(b.StartTime), end)}</td>
+                    <td>${formatTimestamp(b.Timestamp)}</td>
+                    <td class="truncate" title="${b.BookedBy}">${b.BookedBy || '-'}</td>
+                    <td class="truncate" title="${cancelledInfoHtml.replace(/<[^>]*>?/gm, '')}">${cancelledInfoHtml}</td>
+                    <td>
+                        ${isConfirmed ? `<button data-action="cancel" data-id="${b.BookingID}" class="text-red-600 hover:text-red-800 text-sm font-medium">ยกเลิก</button>` : '-'}
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    function renderCarBookingsTable() {
+        const { ui, state } = App;
+        const tableBody = ui.carBookingsTable;
+
+        const statusFilter = ui.carBookingStatusFilter.value;
+        const dateFilter = ui.carBookingDateFilter.value;
+        const searchTerm = ui.carBookingSearch.value;
+
+        const filteredBookings = getFilteredBookings(
+            state.allBookingsCache.cars,
+            statusFilter,
+            dateFilter,
+            searchTerm
+        );
+
+        if (filteredBookings.length === 0) {
+            tableBody.innerHTML = `<tr><td colspan="9" class="text-center text-gray-500 py-12">ไม่พบข้อมูลการจองที่ตรงเงื่อนไข</td></tr>`;
+            return;
+        }
+
+        const now = new Date().getTime();
+        tableBody.innerHTML = filteredBookings.map(b => {
+            const end = new Date(b.EndTime);
+            const isConfirmed = b.Status === 'Confirmed';
+            const isActive = isConfirmed && end.getTime() > now;
+            const statusBadge = getStatusBadge(b.Status, isActive);
+
+            let cancelledInfoHtml = '-';
+            if (b.Status === 'Cancelled') {
+                cancelledInfoHtml = formatCancellationInfo(b.CancelledBy, b.CancelledTimestamp);
+            }
+
+            return `
+                <tr>
+                    <td>${statusBadge}</td>
+                    <td class="truncate" title="${b.resourceName}">${b.resourceName || '-'}</td>
+                    <td class="truncate" title="${b.Title}">${b.Title || '-'}</td>
+                    <td class="truncate text-xs" title="${b.Attendees}">${b.Attendees || '-'}</td>
+                    <td>${formatBookingDate(new Date(b.StartTime), end)}</td>
+                    <td>${formatTimestamp(b.Timestamp)}</td>
+                    <td class="truncate" title="${b.BookedBy}">${b.BookedBy || '-'}</td>
+                    <td class="truncate" title="${cancelledInfoHtml.replace(/<[^>]*>?/gm, '')}">${cancelledInfoHtml}</td>
+                    <td>
+                        ${isConfirmed ? `<button data-action="cancel" data-id="${b.BookingID}" class="text-red-600 hover:text-red-800 text-sm font-medium">ยกเลิก</button>` : '-'}
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    // --- END: Booking Tab Functions ---
+
+
+    function renderRoomsTable() {
+        const { ui, state } = App;
+        const tableBody = ui.roomsTable;
+        const rooms = state.allData.rooms;
+
+        if (rooms.length === 0) {
+            tableBody.innerHTML = `<tr><td colspan="2" class="text-center text-gray-500 py-12">ยังไม่มีห้องประชุม</td></tr>`;
+            return;
+        }
+        tableBody.innerHTML = rooms.map(room => `
+            <tr>
+                <td>${room}</td>
+                <td class="space-x-4">
+                    <button data-action="edit" data-id="${room}" class="text-indigo-600 hover:text-indigo-800 text-sm font-medium">แก้ไข</button>
+                    <button data-action="delete" data-id="${room}" class="text-red-600 hover:text-red-800 text-sm font-medium">ลบ</button>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    function renderCarsTable() {
+        const { ui, state } = App;
+        const tableBody = ui.carsTable;
+        const cars = state.allData.cars;
+
+        if (cars.length === 0) {
+            tableBody.innerHTML = `<tr><td colspan="2" class="text-center text-gray-500 py-12">ยังไม่มีรถยนต์</td></tr>`;
+            return;
+        }
+        tableBody.innerHTML = cars.map(car => `
+            <tr>
+                <td>${car}</td>
+                <td class="space-x-4">
+                    <button data-action="edit" data-id="${car}" class="text-indigo-600 hover:text-indigo-800 text-sm font-medium">แก้ไข</button>
+                    <button data-action="delete" data-id="${car}" class="text-red-600 hover:text-red-800 text-sm font-medium">ลบ</button>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    function renderAdminsTable() {
+        const { ui, state } = App;
+        const tableBody = ui.adminsTable;
+        const admins = state.allData.admins;
+        const currentUser = state.allData.userEmail.toLowerCase();
+
+        if (admins.length === 0) {
+            tableBody.innerHTML = `<tr><td colspan="2" class="text-center text-gray-500 py-12">ยังไม่มีผู้ดูแล</td></tr>`;
+            return;
+        }
+        tableBody.innerHTML = admins.map(admin => {
+            const isCurrentUser = admin.toLowerCase() === currentUser;
+            return `
+            <tr>
+                <td>${admin} ${isCurrentUser ? '<span class="text-xs text-indigo-600 font-medium">(คุณ)</span>' : ''}</td>
+                <td>
+                    ${!isCurrentUser ? `
+                    <button data-action="delete" data-id="${admin}" class="text-red-600 hover:text-red-800 text-sm font-medium">ลบ</button>
+                    ` : '<span class="text-xs text-gray-500">ไม่สามารถลบตัวเอง</span>'}
+                </td>
+            </tr>
+        `}).join('');
+    }
+
+    // --- Actions ---
+
+    function switchTab(tabId) {
+        App.state.currentTab = tabId;
+        // Hide all content
+        Object.values(App.ui.tabs).forEach(tab => tab.classList.add('hidden'));
+        // Deactivate all buttons
+        App.ui.tabButtons.forEach(btn => btn.classList.remove('active'));
+        // Show active content and button
+        App.ui.tabs[tabId].classList.remove('hidden');
+        document.querySelector(`.tab-button[data-tab="${tabId}"]`).classList.add('active');
+    }
+
+    function handleLogout() {
+        showConfirmation('ยืนยันการออกจากระบบ', 'คุณต้องการออกจาก Admin Panel และกลับไปหน้าหลักหรือไม่?', () => {
+            showLoader(true);
+            google.script.run
+                .withSuccessHandler(url => {
+                    window.open(url, '_top');
+                })
+                .withFailureHandler(err => {
+                    showMessage(err.message, true);
+                    showLoader(false);
+                })
+                .getWebAppUrl();
+        });
+    }
+
+    function openResourceModal(mode, type, name = '') {
+        const { ui } = App;
+        ui.resourceTypeInput.value = type;
+        ui.resourceOldNameInput.value = name;
+        
+        let title = '';
+        let label = '';
+        let placeholder = '';
+        
+        if (type === 'room') {
+            title = (mode === 'add') ? 'เพิ่มห้องประชุมใหม่' : 'แก้ไขชื่อห้องประชุม';
+            label = (mode === 'add') ? 'ชื่อห้องประชุม' : 'ชื่อห้องประชุมใหม่';
+            placeholder = 'เช่น, ห้องประชุมเล็ก';
+        } else if (type === 'car') {
+            title = (mode === 'add') ? 'เพิ่มรถยนต์ใหม่' : 'แก้ไขชื่อรถยนต์';
+            label = (mode === 'add') ? 'ชื่อ/ทะเบียนรถ' : 'ชื่อ/ทะเบียนรถใหม่';
+            placeholder = 'เช่น, Toyota Vios กท-1234';
+        } else if (type === 'admin') {
+            title = 'เพิ่มผู้ดูแลใหม่';
+            label = 'อีเมลผู้ดูแล';
+            placeholder = 'เช่น, user@example.com';
+        }
+        
+        ui.resourceModalTitle.textContent = title;
+        ui.resourceNameLabel.textContent = label;
+        ui.resourceNameInput.placeholder = placeholder;
+        ui.resourceNameInput.value = (mode === 'edit') ? name : '';
+        
+        ui.resourceModal.classList.add('flex');
+        ui.resourceNameInput.focus();
+    }
+
+    function handleSubmitResource() {
+        const { ui } = App;
+        const type = ui.resourceTypeInput.value;
+        const newName = ui.resourceNameInput.value.trim();
+        const oldName = ui.resourceOldNameInput.value;
+        const mode = oldName ? 'edit' : 'add';
+
+        if (!newName) {
+            showMessage('กรุณากรอกข้อมูล', true);
+            return;
+        }
+
+        let serverFunction = '';
+        let args = [];
+
+        if (mode === 'add') {
+            if (type === 'room') serverFunction = 'addRoom';
+            else if (type === 'car') serverFunction = 'addCar';
+            else if (type === 'admin') serverFunction = 'addAdmin';
+            args = [newName];
+        } else { // mode === 'edit'
+            if (newName === oldName) {
+                 ui.resourceModal.classList.remove('flex');
+                 return; // No change
+            }
+            if (type === 'room') serverFunction = 'updateRoom';
+            else if (type === 'car') serverFunction = 'updateCar';
+            args = [oldName, newName];
+        }
+
+        if (!serverFunction) return;
+
+        showLoader(true);
+        google.script.run
+            .withSuccessHandler(res => {
+                showMessage(res.message);
+                ui.resourceModal.classList.remove('flex');
+                
+                // Reload ALL DATA to reflect changes everywhere
+                loadAdminData();
+            })
+            .withFailureHandler(err => {
+                showMessage(err.message, true);
+                showLoader(false);
+            })
+            [serverFunction](...args);
+    }
+
+    function handleTableAction(event, type) {
+        const target = event.target.closest('button');
+        if (!target) return;
+
+        const action = target.dataset.action;
+        const id = target.dataset.id;
+        
+        if (action === 'edit') {
+            openResourceModal('edit', type, id);
+        } else if (action === 'delete') {
+            handleDelete(id, type);
+        } else if (action === 'cancel') {
+            const bookingType = (type === 'booking-room') ? 'room' : 'car';
+            handleCancelBooking(id, bookingType);
+        }
+    }
+
+    function handleDelete(id, type) {
+        let title = '';
+        let body = '';
+        let serverFunction = '';
+
+        if (type === 'room') {
+            title = 'ยืนยันการลบห้องประชุม';
+            body = `คุณแน่ใจหรือไม่ว่าต้องการลบห้อง <strong>"${id}"</strong>? (การจองที่เกี่ยวข้องทั้งหมดจะยังคงอยู่ แต่การจองที่ Active จะถูกตรวจสอบ)`;
+            serverFunction = 'deleteRoom';
+        } else if (type === 'car') {
+            title = 'ยืนยันการลบรถยนต์';
+            body = `คุณแน่ใจหรือไม่ว่าต้องการลบรถ <strong>"${id}"</strong>? (การจองที่เกี่ยวข้องทั้งหมดจะยังคงอยู่ แต่การจองที่ Active จะถูกตรวจสอบ)`;
+            serverFunction = 'deleteCar';
+        } else if (type === 'admin') {
+            title = 'ยืนยันการลบผู้ดูแล';
+            body = `คุณแน่ใจหรือไม่ว่าต้องการลบ <strong>"${id}"</strong> ออกจากรายชื่อผู้ดูแล?`;
+            serverFunction = 'deleteAdmin';
+        } else {
+            return;
+        }
+
+        showConfirmation(title, body, () => {
+            showLoader(true);
+            google.script.run
+                .withSuccessHandler(res => {
+                    showMessage(res.message);
+                    loadAdminData();
+                })
+                .withFailureHandler(err => {
+                    showMessage(err.message, true);
+                    showLoader(false);
+                })
+                [serverFunction](id);
+        });
+    }
+
+    function handleCancelBooking(bookingId, bookingType) {
+        const title = 'ยืนยันการยกเลิกการจอง';
+        const body = `คุณแน่ใจหรือไม่ว่าต้องการยกเลิกการจอง ID: <strong>"${bookingId}"</strong>?`;
+        const serverFunction = bookingType === 'room' ? 'cancelRoomBooking' : 'cancelCarBooking';
+
+        showConfirmation(title, body, () => {
+            showLoader(true);
+            google.script.run
+                .withSuccessHandler(res => {
+                    showMessage(res.message);
+                    
+                    // We receive new bookings data in 'res' from server
+                    App.state.allData.roomBookings = res.roomBookings;
+                    App.state.allData.carBookings = res.carBookings;
+                    App.state.allBookingsCache.rooms = res.roomBookings;
+                    App.state.allBookingsCache.cars = res.carBookings;
+                    
+                    // Re-render
+                    renderRoomBookingsTable(); 
+                    renderCarBookingsTable();  
+                    renderDashboard(); 
+                    renderReportsTab(); 
+                    showLoader(false);
+                })
+                .withFailureHandler(err => {
+                    showMessage(err.message, true);
+                    showLoader(false);
+                })
+                [serverFunction](bookingId);
+        });
+    }
+
+
+    // --- UI Utilities ---
+    
+    function getStatusBadge(status, isActive) {
+        if (isActive) {
+            return `<span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Active</span>`;
+        } else if (status === 'Confirmed') {
+            return `<span class="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-700">Finished</span>`;
+        } else { // Cancelled
+            return `<span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">Cancelled</span>`;
+        }
+    }
+
+    function formatCancellationInfo(cancelledBy, isoTimestamp) {
+        if (!cancelledBy) {
+            return '<span class="text-red-600">Cancelled</span>';
+        }
+        
+        let datePart = '';
+        if (isoTimestamp) {
+            try {
+                const date = new Date(isoTimestamp);
+                const options = { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Bangkok' };
+                datePart = date.toLocaleDateString('th-TH', options);
+            } catch (e) {
+                datePart = 'Invalid Date';
+            }
+        }
+        
+        return `<span class="text-red-600 font-medium">${cancelledBy} (${datePart})</span>`;
+    }
+
+    function formatTimestamp(isoString) {
+        if (!isoString) {
+            return '<span class="text-xs text-gray-500">N/A</span>';
+        }
+        try {
+            const date = new Date(isoString);
+            if (isNaN(date)) return '<span class="text-xs text-gray-500">Invalid Date</span>';
+            
+            const options = { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Bangkok' };
+            const datePart = date.toLocaleDateString('th-TH', options);
+            const timePart = date.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok' });
+            return `${datePart} <span class="text-xs text-gray-600">${timePart}</span>`;
+        } catch (e) {
+            console.error("Error formatting timestamp:", isoString, e);
+            return '<span class="text-xs text-gray-500">Error</span>';
+        }
+    }
+
+    function formatBookingDate(start, end) {
+        try {
+            const options = { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Bangkok' };
+            const datePart = start.toLocaleDateString('th-TH', options);
+            const timePart = `${start.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok' })} - ${end.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok' })}`;
+            return `${datePart} <span class="text-xs text-gray-600">${timePart}</span>`;
+        } catch (e) {
+            console.error("Error formatting booking date:", start, end, e);
+            return "Date Error";
+        }
+    }
+
+    const showLoader = (show) => {
+        App.ui.loader.classList.toggle('flex', show);
+    };
+    
+    const showMessage = (message, isError = false) => {
+        const { ui } = App;
+        ui.messageBox.textContent = message;
+        ui.messageBox.className = `fixed top-5 right-5 text-white py-2 px-4 rounded-lg shadow-lg z-[1002] transition-transform duration-300 ${isError ? 'bg-red-500' : 'bg-green-500'}`;
+        ui.messageBox.style.display = 'block';
+        setTimeout(() => ui.messageBox.classList.remove('translate-x-[120%]'), 10);
+        setTimeout(() => {
+            ui.messageBox.classList.add('translate-x-[120%]');
+            setTimeout(() => ui.messageBox.style.display = 'none', 300);
+        }, 4000);
+    };
+
+    const showConfirmation = (title, body, onConfirm) => {
+        const { ui } = App;
+        ui.confirmModalTitle.textContent = title;
+        ui.confirmModalBody.innerHTML = body;
+        App.state.confirmCallback = onConfirm;
+        ui.confirmModal.classList.add('flex');
+    };
+
+})();
+</script>
