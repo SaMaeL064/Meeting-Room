@@ -4,73 +4,126 @@
     <base target="_top">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BeNeat Central Reservation System</title>
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- เพิ่มฟอนต์ Inter สำหรับตัวเลข/ภาษาอังกฤษให้ดู Modern คู่กับ Sarabun -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Sarabun:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js'></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+    
+    <!-- ฝัง Color Palette ตามรูปภาพที่แนบมา -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Sarabun', 'Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        'brand-cyan': '#2eb8cb',     /* ฟ้าเข้ม */
+                        'brand-lcyan': '#78e0ed',    /* ฟ้าอ่อน */
+                        'brand-taupe': '#a39171',    /* น้ำตาลเทา */
+                        'brand-orange': '#f0a85d',   /* ส้ม */
+                        'brand-peach': '#e3b67b',    /* ส้มอ่อน */
+                        'brand-sky': '#85c7da',      /* ฟ้าตุ่น */
+                        'brand-mint': '#aedbce',     /* เขียวมินต์ */
+                        'brand-gray': '#bcc7c5',     /* เทาเขียว */
+                    }
+                }
+            }
+        }
+    </script>
+    
     <style>
         html, body {
             margin: 0; padding: 0;
-            font-family: 'Sarabun', sans-serif; height: 100vh;
+            font-family: 'Sarabun', 'Inter', sans-serif; height: 100vh;
             overflow: hidden; background-color: #f9fafb;
+            color: #374151;
         }
         .page { display: none; }
-        .page.active { display: flex; flex-direction: column; height: 100%; }
+        .page.active { display: flex; flex-direction: column; height: 100%; animation: fadeIn 0.4s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
         #calendar-wrapper, #car-calendar-wrapper { flex-grow: 1; padding: 0.5rem 1rem 1rem 1rem; overflow: auto; }
+        
+        /* Modal Modernization */
         .modal {
             display: none; position: fixed; z-index: 1000; left: 0; top: 0;
-            width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5);
+            width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4);
+            backdrop-filter: blur(4px);
             align-items: center; justify-content: center; transition: opacity 0.3s ease;
         }
         .modal-content {
-            background-color: #fefefe; margin: auto; padding: 24px; border-radius: 0.5rem;
-            width: 90%; max-width: 500px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            transform: scale(0.95); transition: transform 0.3s ease;
+            background-color: #ffffff; margin: auto; padding: 32px; border-radius: 1.5rem;
+            width: 90%; max-width: 520px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            transform: scale(0.95); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            max-height: 90vh; overflow-y: auto;
         }
         .modal.flex { display: flex; }
         .modal.flex .modal-content { transform: scale(1); }
-        .fc .fc-button { background-color: #4f46e5; border-color: #4f46e5; }
-        .fc .fc-button:hover { background-color: #4338ca; }
-        .fc-event { cursor: pointer; }
-        .resource-button { transition: all 0.2s ease-in-out; border: 2px solid transparent; }
-        .resource-button.selected { border-color: #4f46e5 !important; background-color: #eef2ff !important; color: #4338ca !important; font-weight: 700 !important; }
+        
+        /* Calendar UI Modernization */
+        .fc { --fc-border-color: #e5e7eb; --fc-button-bg-color: #2eb8cb; --fc-button-border-color: #2eb8cb; --fc-button-hover-bg-color: #78e0ed; --fc-button-hover-border-color: #78e0ed; }
+        .fc .fc-button { border-radius: 0.5rem; font-family: 'Sarabun', sans-serif; font-weight: 500; text-transform: capitalize; }
+        .fc .fc-toolbar-title { font-size: 1.25rem; font-weight: 700; color: #a39171; }
+        .fc-event { cursor: pointer; border: none !important; border-radius: 6px; padding: 2px 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+        
+        /* Resource Buttons & Cards */
+        .resource-button { transition: all 0.2s ease-in-out; border: 2px solid transparent; background-color: #ffffff; border-radius: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .resource-button:hover { transform: translateY(-2px); box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .resource-button.selected { border-color: #2eb8cb !important; background-color: #f0fbfe !important; color: #2eb8cb !important; font-weight: 700 !important; }
+        
+        /* Image Card Style */
+        .room-card { width: 180px; height: 100px; position: relative; overflow: hidden; border-radius: 1rem; cursor: pointer; border: 3px solid transparent; transition: all 0.3s ease; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .room-card img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s ease; }
+        .room-card:hover img { transform: scale(1.1); }
+        .room-card .overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.8), transparent); display: flex; align-items: flex-end; padding: 10px; }
+        .room-card .title { color: white; font-weight: 600; font-size: 0.9rem; text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
+        .room-card.selected { border-color: #2eb8cb; box-shadow: 0 0 15px rgba(46, 184, 203, 0.4); }
+        
         .fc-daygrid-event, .fc-timegrid-event { white-space: normal !important; align-items: center; }
-        .fc-daygrid-event .fc-event-main, .fc-timegrid-event .fc-event-main { padding: 2px 4px; }
-        .fc-event-time { font-weight: 700; }
-        .fc-event-title { display: block; padding-left: 0; }
+        .fc-event-time { font-weight: 600; font-family: 'Inter', sans-serif; font-size: 0.8rem; }
+        .fc-event-title { display: block; padding-left: 0; font-size: 0.85rem; }
         .fc .fc-loading { display: none !important; }
+        
+        /* Inputs & Selects */
+        input[type="text"], input[type="date"], select { border-radius: 0.75rem; border: 1px solid #d1d5db; transition: all 0.2s; }
+        input[type="text"]:focus, input[type="date"]:focus, select:focus { border-color: #2eb8cb; box-shadow: 0 0 0 3px rgba(46, 184, 203, 0.2); outline: none; }
+        
         /* Loader Animations */
-        #loader .loader-content { display: flex; flex-direction: column; align-items: center; color: white; font-size: 1.25rem; font-weight: 600; }
-        #car-loader-animation, #room-loader-animation, #admin-loader-animation { font-size: 3rem; margin-bottom: 1rem; }
-        @keyframes drive { 0% { transform: translateX(-5px); } 50% { transform: translateX(5px); } 100% { transform: translateX(-5px); } }
-        .animate-drive { animation: drive 1s ease-in-out infinite; }
-        @keyframes flip { 0% { transform: rotateY(0deg); } 50% { transform: rotateY(180deg); } 100% { transform: rotateY(0deg); } }
-        .animate-flip { animation: flip 1.5s ease-in-out infinite; }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-        .animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        #loader .loader-content { display: flex; flex-direction: column; align-items: center; color: #2eb8cb; font-size: 1.25rem; font-weight: 600; }
+        #car-loader-animation, #room-loader-animation, #admin-loader-animation { font-size: 3.5rem; margin-bottom: 1rem; color: #f0a85d; }
+        @keyframes bounce-subtle { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+        .animate-flip { animation: bounce-subtle 1.5s ease-in-out infinite; }
     </style>
 </head>
-<body class="bg-gray-50">
+<body class="bg-[#f9fafb]">
 
     <!-- Landing Page -->
     <div id="landing-page" class="page active justify-center items-center">
-        <div class="text-center max-w-4xl mx-auto p-4">
-            <h1 class="text-5xl font-bold text-gray-800 mb-12">BeNeat Central Reservation System</h1>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-12">
-                <div id="go-to-rooms" class="bg-white p-12 rounded-lg shadow-lg hover:shadow-xl transition-shadow cursor-pointer">
-                    <i class="fa-solid fa-people-roof text-7xl text-indigo-600 mb-6"></i>
-                    <h2 class="text-3xl font-bold text-gray-700">จองห้องประชุม</h2>
+        <div class="text-center max-w-4xl mx-auto p-4 w-full">
+            <h1 class="text-4xl md:text-5xl font-bold text-brand-taupe mb-4 tracking-tight">BeNeat <span class="text-brand-cyan">Central</span> Reservation</h1>
+            <p class="text-brand-gray mb-12 text-lg">เลือกระบบที่คุณต้องการใช้งาน</p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div id="go-to-rooms" class="bg-white p-10 rounded-3xl shadow-lg hover:shadow-2xl transition-all cursor-pointer border border-gray-100 group">
+                    <div class="h-20 w-20 mx-auto bg-brand-cyan/10 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-brand-cyan transition-colors">
+                        <i class="fa-solid fa-people-roof text-5xl text-brand-cyan group-hover:text-white transition-colors"></i>
+                    </div>
+                    <h2 class="text-2xl font-bold text-gray-800">จองห้องประชุม</h2>
                 </div>
-                <div id="go-to-cars" class="bg-white p-12 rounded-lg shadow-lg hover:shadow-xl transition-shadow cursor-pointer">
-                    <i class="fa-solid fa-car text-7xl text-teal-600 mb-6"></i>
-                    <h2 class="text-3xl font-bold text-gray-700">จองใช้รถยนต์</h2>
+                <div id="go-to-cars" class="bg-white p-10 rounded-3xl shadow-lg hover:shadow-2xl transition-all cursor-pointer border border-gray-100 group">
+                    <div class="h-20 w-20 mx-auto bg-brand-orange/10 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-brand-orange transition-colors">
+                        <i class="fa-solid fa-car text-5xl text-brand-orange group-hover:text-white transition-colors"></i>
+                    </div>
+                    <h2 class="text-2xl font-bold text-gray-800">จองใช้รถยนต์</h2>
                 </div>
             </div>
             
             <div id="go-to-admin" class="mt-12" style="display: none;">
-                <div class="bg-white p-8 rounded-lg shadow-lg hover:shadow-xl transition-shadow cursor-pointer max-w-md mx-auto border-2 border-slate-300 hover:border-slate-500">
-                    <i class="fa-solid fa-shield-halved text-5xl text-slate-600 mb-4"></i>
-                    <h2 class="text-2xl font-bold text-gray-700">Admin Panel</h2>
+                <div class="bg-white p-6 rounded-2xl shadow hover:shadow-lg transition-all cursor-pointer max-w-xs mx-auto border border-gray-200 flex items-center justify-center gap-4 text-brand-taupe hover:text-brand-cyan">
+                    <i class="fa-solid fa-shield-halved text-2xl"></i>
+                    <h2 class="text-lg font-bold">Admin Panel</h2>
                 </div>
             </div>
         </div>
@@ -78,229 +131,291 @@
 
     <!-- Room Booking Page -->
     <div id="room-booking-page" class="page">
-        <header class="bg-white shadow-sm p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <header class="bg-white border-b border-gray-200 p-4 md:px-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 z-10 shadow-sm">
             <div class="flex items-center gap-4">
-                 <button class="back-to-landing text-gray-500 hover:text-indigo-600">
-                     <i class="fa-solid fa-arrow-left fa-lg"></i>
+                 <button class="back-to-landing h-10 w-10 rounded-full bg-gray-100 text-gray-500 hover:bg-brand-cyan hover:text-white transition-colors flex items-center justify-center">
+                     <i class="fa-solid fa-arrow-left"></i>
                  </button>
-                 <h1 class="text-xl font-bold text-gray-800 shrink-0">🗓️ BeNeat Meeting Room Reservation</h1>
+                 <h1 class="text-xl font-bold text-gray-800 shrink-0">🗓️ BeNeat Meeting Room</h1>
             </div>
-            <div class="w-full sm:w-auto flex items-center gap-3">
-                <div id="room-buttons-container" class="flex-grow flex items-center gap-3 overflow-x-auto pb-2"></div>
+            <div class="w-full md:w-auto flex items-center gap-4 overflow-hidden">
+                <div id="room-buttons-container" class="flex-grow flex items-center gap-4 overflow-x-auto pb-2 snap-x hide-scrollbar"></div>
             </div>
         </header>
-        <div id='calendar-wrapper'><div id='room-calendar'></div></div>
+        <div id='calendar-wrapper'><div id='room-calendar' class="bg-white rounded-2xl shadow-sm border border-gray-100 p-3 h-full"></div></div>
     </div>
     
     <!-- Car Booking Page -->
     <div id="car-booking-page" class="page">
-         <header class="bg-white shadow-sm p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+         <header class="bg-white border-b border-gray-200 p-4 md:px-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 z-10 shadow-sm">
             <div class="flex items-center gap-4">
-                 <button class="back-to-landing text-gray-500 hover:text-indigo-600">
-                     <i class="fa-solid fa-arrow-left fa-lg"></i>
+                 <button class="back-to-landing h-10 w-10 rounded-full bg-gray-100 text-gray-500 hover:bg-brand-orange hover:text-white transition-colors flex items-center justify-center">
+                     <i class="fa-solid fa-arrow-left"></i>
                  </button>
                  <h1 class="text-xl font-bold text-gray-800 shrink-0">🚗 BeNeat Car Reservation</h1>
             </div>
-            <div class="w-full sm:w-auto flex items-center gap-3">
-                <div id="car-buttons-container" class="flex-grow flex items-center gap-3 overflow-x-auto pb-2"></div>
+            <div class="w-full md:w-auto flex items-center gap-3">
+                <div id="car-buttons-container" class="flex-grow flex items-center gap-3 overflow-x-auto pb-2 hide-scrollbar"></div>
             </div>
         </header>
-        <div id='car-calendar-wrapper'><div id='car-calendar'></div></div>
+        <div id='car-calendar-wrapper'><div id='car-calendar' class="bg-white rounded-2xl shadow-sm border border-gray-100 p-3 h-full"></div></div>
     </div>
 
     <!-- Booking Modal -->
     <div id="booking-modal" class="modal">
-        <div class="modal-content">
-            <div class="mb-5 pb-3 border-b border-gray-200">
-                <h2 id="booking-modal-title" class="text-sm font-medium text-gray-500">ทำการจอง</h2>
-                <div class="flex items-center gap-2 mt-1">
-                    <i id="booking-resource-icon" class="fa-solid fa-people-roof text-indigo-600 text-xl"></i>
-                    <span id="booking-resource-name" class="text-xl font-bold text-indigo-600"></span>
-                </div>
+        <div class="modal-content !p-0 flex flex-col overflow-hidden">
+            <!-- ภาพหน้าปก (Cover Image) -->
+            <div id="booking-cover-container" class="relative w-full h-48 hidden flex-shrink-0 bg-gray-100">
+                <img id="booking-resource-image" src="" alt="Resource Cover" class="w-full h-full object-cover">
+                <div class="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent"></div>
+                <button class="btn-cancel absolute top-4 right-4 text-white hover:text-white bg-white/20 hover:bg-white/40 w-8 h-8 rounded-full flex justify-center items-center transition backdrop-blur-md z-10 border border-white/30">
+                    <i class="fa-solid fa-times"></i>
+                </button>
             </div>
+            
+            <div class="p-6 md:p-8 overflow-y-auto flex-grow">
+                <div class="mb-6 flex justify-between items-start">
+                    <div>
+                        <h2 id="booking-modal-title" class="text-sm font-semibold tracking-wider text-brand-taupe uppercase">ทำการจอง</h2>
+                        <div class="flex items-center gap-2 mt-1">
+                            <i id="booking-resource-icon" class="fa-solid fa-bookmark text-brand-cyan text-xl"></i>
+                            <span id="booking-resource-name" class="text-2xl font-bold text-gray-800"></span>
+                        </div>
+                    </div>
+                    <button id="booking-btn-cancel-no-img" class="btn-cancel text-gray-400 hover:text-gray-600 bg-gray-100 hover:bg-gray-200 w-8 h-8 rounded-full flex justify-center items-center transition">
+                        <i class="fa-solid fa-times"></i>
+                    </button>
+                </div>
             
             <input type="hidden" id="booking-id">
             
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-lg font-semibold text-gray-900 mb-2">🔴หัวข้อการใช้งาน</label>
-                    <input type="text" id="booking-title" class="mt-1 block w-full rounded-md border-gray-400 shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none px-3 py-2">
+            <div class="space-y-5">
+                <!-- Section เปลี่ยนห้อง (แสดงเฉพาะตอนแก้ไข) -->
+                <div id="change-resource-section" class="hidden bg-brand-sky/10 p-4 rounded-xl border border-brand-sky/20">
+                    <label class="block text-sm font-semibold text-brand-taupe mb-2"><i class="fa-solid fa-shuffle mr-1"></i> ต้องการเปลี่ยนห้อง/รถ หรือไม่?</label>
+                    <select id="booking-resource-select" class="block w-full rounded-xl border-gray-300 px-3 py-2 bg-white"></select>
                 </div>
 
-                <!-- Checkbox Private Booking (เพิ่มใหม่) -->
-                <div class="flex items-center mb-2">
-                    <input id="booking-is-private" type="checkbox" class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 cursor-pointer">
-                    <label for="booking-is-private" class="ml-2 block text-sm font-medium text-gray-700 cursor-pointer select-none">
-                        <i class="fa-solid fa-lock text-gray-500 mr-1"></i> จองแบบส่วนตัว (ซ่อนชื่อการประชุม)
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">🔴หัวข้อการใช้งาน</label>
+                    <input type="text" id="booking-title" placeholder="พิมพ์หัวข้อการประชุม หรือ ปลายทาง" class="block w-full px-4 py-3 bg-gray-50 focus:bg-white">
+                </div>
+
+                <!-- Checkbox Private Booking -->
+                <div class="flex items-center bg-gray-50 p-3 rounded-xl border border-gray-100">
+                    <input id="booking-is-private" type="checkbox" class="w-5 h-5 text-brand-cyan border-gray-300 rounded focus:ring-brand-cyan cursor-pointer">
+                    <label for="booking-is-private" class="ml-3 block text-sm font-medium text-gray-700 cursor-pointer select-none">
+                        <i class="fa-solid fa-lock text-brand-gray mr-1"></i> จองแบบส่วนตัว (ซ่อนชื่อการประชุม)
                     </label>
                 </div>
                 
                 <!-- ซ่อนแสดงเฉพาะหน้าห้องประชุม -->
                 <div id="attendees-section" class="relative">
-                    <label class="block text-sm font-medium text-gray-700">ผู้เข้าร่วมประชุม</label>
-                    <div id="attendees-container" class="mt-1 flex flex-wrap items-center gap-2 p-2 w-full rounded-md border border-gray-400 shadow-sm focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-200 bg-white min-h-[42px] cursor-text transition-all">
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">ผู้เข้าร่วมประชุม</label>
+                    <div id="attendees-container" class="flex flex-wrap items-center gap-2 p-2 w-full rounded-xl border border-gray-300 bg-gray-50 focus-within:bg-white focus-within:border-brand-cyan focus-within:ring-2 focus-within:ring-brand-cyan/20 min-h-[48px] cursor-text transition-all">
                         <div id="chips-wrapper" class="flex flex-wrap items-center gap-2"></div>
                         <input type="text" id="booking-attendees-input" class="flex-grow outline-none bg-transparent min-w-[150px] text-sm text-gray-800 placeholder-gray-400" placeholder="พิมพ์ชื่อแล้วเลือก หรือพิมพ์อีเมล..." autocomplete="off">
                     </div>
-                    <ul id="autocomplete-list" class="absolute z-[1001] w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-48 overflow-y-auto hidden mt-1 text-sm">
+                    <ul id="autocomplete-list" class="absolute z-[1001] w-full bg-white border border-gray-200 rounded-xl shadow-xl max-h-48 overflow-y-auto hidden mt-1 text-sm">
                     </ul>
                     
-                    <div class="flex justify-between items-center mt-1">
-                        <p class="text-xs text-gray-500">* ระบบจะส่งลิงก์ Meet และ Calendar ให้ผู้เข้าร่วมอัตโนมัติ</p>
-                        <!-- ปุ่มเช็คคิวว่าง -->
-                        <button id="btn-check-availability" type="button" class="text-xs font-semibold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-2 py-1 rounded transition-colors hidden">
+                    <div class="flex justify-between items-center mt-2">
+                        <p class="text-xs text-brand-gray"><i class="fa-solid fa-info-circle"></i> ระบบจะส่งลิงก์ Meet ให้ผู้เข้าร่วม</p>
+                        <button id="btn-check-availability" type="button" class="text-xs font-semibold text-brand-cyan hover:text-brand-lcyan bg-brand-cyan/10 px-3 py-1.5 rounded-lg transition-colors hidden">
                             <i class="fa-solid fa-calendar-check mr-1"></i>เช็คคิวว่าง
                         </button>
                     </div>
-                    <!-- พื้นที่แสดงผลคิวไม่ว่าง -->
-                    <div id="availability-result" class="text-xs font-medium text-red-600 mt-2 hidden bg-red-50 p-2 rounded border border-red-200">
-                    </div>
+                    <div id="availability-result" class="text-xs font-medium text-red-500 mt-2 hidden bg-red-50 p-3 rounded-xl border border-red-100"></div>
                 </div>
                 
-                <div>
-                    <label class="block text-sm font-medium text-gray-700">วันที่</label>
-                    <p id="booking-date-display" class="mt-1 text-lg font-semibold text-gray-800"></p>
-                    <input type="hidden" id="booking-date">
-                </div>
-                
-                <div class="grid grid-cols-2 gap-4">
+                <div class="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-xl border border-gray-100">
+                    <!-- วันที่เริ่มต้น -->
                     <div>
-                        <label class="block text-sm font-medium text-gray-700">เวลาเริ่มต้น</label>
-                        <select id="booking-start-time" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-3 py-2"></select>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">วันที่เริ่มต้น</label>
+                        <input type="date" id="booking-start-date" class="block w-full px-3 py-2 bg-white">
+                    </div>
+                    <!-- วันที่สิ้นสุด (สำหรับจองหลายวัน) -->
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1 text-brand-orange">ถึงวันที่ (กรณีจองหลายวัน)</label>
+                        <input type="date" id="booking-end-date" class="block w-full px-3 py-2 bg-white" title="เลือกหากต้องการจองต่อเนื่องหลายวัน">
+                    </div>
+                    
+                    <!-- เวลา -->
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">เวลาเริ่มต้น</label>
+                        <select id="booking-start-time" class="block w-full px-3 py-2 bg-white"></select>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700">เวลาสิ้นสุด</label>
-                        <select id="booking-end-time" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-3 py-2"></select>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">เวลาสิ้นสุด</label>
+                        <select id="booking-end-time" class="block w-full px-3 py-2 bg-white"></select>
                     </div>
                 </div>
                 
-                <div>
-                    <label class="block text-sm font-medium text-gray-700">ระยะเวลา</label>
-                    <p id="booking-duration" class="mt-1 text-md font-medium text-indigo-600"></p>
+                <div class="flex justify-between items-center">
+                    <div>
+                        <span class="text-sm text-gray-500">ระยะเวลา:</span>
+                        <span id="booking-duration" class="ml-2 font-bold text-brand-cyan"></span>
+                    </div>
+                    <p id="multi-day-warning" class="text-xs text-brand-orange hidden font-medium"><i class="fa-solid fa-repeat"></i> จองเวลาเดิมซ้ำหลายวัน</p>
+                </div>
+
+                <!-- Section: เลือกว่าจะจองวันไหนในสัปดาห์บ้าง (แสดงเฉพาะตอนจองแบบเลือกช่วงวัน) -->
+                <div id="recurring-days-section" class="hidden bg-white p-3 rounded-xl border border-gray-200">
+                    <label class="block text-xs font-semibold text-brand-taupe mb-2">เลือกวันในสัปดาห์ (สำหรับการจองต่อเนื่อง)</label>
+                    <div class="flex flex-wrap gap-3">
+                        <label class="flex items-center space-x-1 cursor-pointer"><input type="checkbox" name="recurring-day" value="1" class="text-brand-cyan focus:ring-brand-cyan w-4 h-4 rounded border-gray-300" checked> <span class="text-sm font-medium text-gray-700">จ.</span></label>
+                        <label class="flex items-center space-x-1 cursor-pointer"><input type="checkbox" name="recurring-day" value="2" class="text-brand-cyan focus:ring-brand-cyan w-4 h-4 rounded border-gray-300" checked> <span class="text-sm font-medium text-gray-700">อ.</span></label>
+                        <label class="flex items-center space-x-1 cursor-pointer"><input type="checkbox" name="recurring-day" value="3" class="text-brand-cyan focus:ring-brand-cyan w-4 h-4 rounded border-gray-300" checked> <span class="text-sm font-medium text-gray-700">พ.</span></label>
+                        <label class="flex items-center space-x-1 cursor-pointer"><input type="checkbox" name="recurring-day" value="4" class="text-brand-cyan focus:ring-brand-cyan w-4 h-4 rounded border-gray-300" checked> <span class="text-sm font-medium text-gray-700">พฤ.</span></label>
+                        <label class="flex items-center space-x-1 cursor-pointer"><input type="checkbox" name="recurring-day" value="5" class="text-brand-cyan focus:ring-brand-cyan w-4 h-4 rounded border-gray-300" checked> <span class="text-sm font-medium text-gray-700">ศ.</span></label>
+                        <label class="flex items-center space-x-1 cursor-pointer"><input type="checkbox" name="recurring-day" value="6" class="text-brand-cyan focus:ring-brand-cyan w-4 h-4 rounded border-gray-300" checked> <span class="text-sm font-medium text-gray-700">ส.</span></label>
+                        <label class="flex items-center space-x-1 cursor-pointer"><input type="checkbox" name="recurring-day" value="0" class="text-brand-cyan focus:ring-brand-cyan w-4 h-4 rounded border-gray-300" checked> <span class="text-sm font-medium text-gray-700">อา.</span></label>
+                    </div>
+                </div>
+
+                <!-- Section: แก้ไขแบบ Bulk (แสดงเฉพาะตอน Edit Series) -->
+                <div id="edit-series-section" class="hidden bg-brand-peach/10 p-3 rounded-xl border border-brand-peach/30">
+                    <label class="flex items-start space-x-3 cursor-pointer">
+                        <input type="checkbox" id="booking-edit-series" class="mt-1 w-5 h-5 text-brand-orange focus:ring-brand-orange border-brand-peach rounded">
+                        <div>
+                            <span class="block text-sm font-bold text-brand-orange"><i class="fa-solid fa-repeat"></i> นำการเปลี่ยนแปลงไปใช้กับทั้งซีรีส์</span>
+                            <span class="block text-xs text-brand-taupe mt-0.5">ห้องและเวลาใหม่ จะถูกอัปเดตให้กับทุกๆ วันที่คุณได้จองไว้ในชุดเดียวกันนี้</span>
+                        </div>
+                    </label>
                 </div>
             </div>
             
-            <div class="flex justify-end space-x-2 mt-6">
-                <button class="btn-cancel px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300">ยกเลิก</button>
-                <button id="submit-booking-btn" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50">ยืนยัน</button>
+            <div class="flex justify-end gap-3 mt-8 pt-4 border-t border-gray-100">
+                <button class="btn-cancel px-5 py-2.5 bg-white border border-gray-300 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition">ยกเลิก</button>
+                <button id="submit-booking-btn" class="px-6 py-2.5 bg-brand-cyan text-white font-medium rounded-xl hover:bg-[#259ba8] shadow-lg shadow-brand-cyan/30 transition disabled:opacity-50">ยืนยันการจอง</button>
+            </div>
             </div>
         </div>
     </div>
 
     <!-- Event Details Modal -->
     <div id="event-details-modal" class="modal">
-        <div class="modal-content">
-            <h2 id="details-title" class="text-lg font-bold mb-4 text-gray-800">รายละเอียด</h2>
-            <div class="space-y-3 text-gray-600">
-                <p><strong id="details-resource-label">ห้อง/รถ:</strong> <span id="details-resource"></span></p>
-                <p><strong>เวลา:</strong> <span id="details-time"></span></p>
-                <p><strong>จองโดย:</strong> <span id="details-user"></span></p>
+        <div class="modal-content !p-0 flex flex-col overflow-hidden">
+            <!-- ภาพหน้าปก (Cover Image) -->
+            <div id="details-cover-container" class="relative w-full h-48 hidden flex-shrink-0 bg-gray-100">
+                <img id="details-resource-image" src="" alt="Resource Cover" class="w-full h-full object-cover">
+                <div class="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent"></div>
+                <button class="btn-cancel absolute top-4 right-4 text-white hover:text-white bg-white/20 hover:bg-white/40 w-8 h-8 rounded-full flex justify-center items-center transition backdrop-blur-md z-10 border border-white/30">
+                    <i class="fa-solid fa-times"></i>
+                </button>
+            </div>
+
+            <div class="p-6 md:p-8 overflow-y-auto flex-grow">
+                <div class="flex justify-between items-start mb-6 pb-4 border-b border-gray-100">
+                    <h2 id="details-title" class="text-xl font-bold text-gray-800 pr-4 leading-snug">รายละเอียด</h2>
+                    <button id="details-btn-cancel-no-img" class="btn-cancel text-gray-400 hover:text-gray-600 bg-gray-100 hover:bg-gray-200 w-8 h-8 rounded-full flex justify-center items-center transition">
+                        <i class="fa-solid fa-times"></i>
+                    </button>
+                </div>
+            
+            <div class="space-y-4 text-gray-700 text-sm">
+                <div class="flex items-start gap-3">
+                    <div class="w-6 flex justify-center text-brand-taupe mt-0.5"><i class="fa-solid fa-bookmark"></i></div>
+                    <div><span class="font-semibold text-xs uppercase text-brand-gray block mb-0.5" id="details-resource-label">ห้อง/รถ</span><span id="details-resource" class="font-medium text-base"></span></div>
+                </div>
+                <div class="flex items-start gap-3">
+                    <div class="w-6 flex justify-center text-brand-taupe mt-0.5"><i class="fa-solid fa-clock"></i></div>
+                    <div><span class="font-semibold text-xs uppercase text-brand-gray block mb-0.5">เวลา</span><span id="details-time" class="font-medium"></span></div>
+                </div>
+                <div class="flex items-start gap-3">
+                    <div class="w-6 flex justify-center text-brand-taupe mt-0.5"><i class="fa-solid fa-user"></i></div>
+                    <div><span class="font-semibold text-xs uppercase text-brand-gray block mb-0.5">จองโดย</span><span id="details-user" class="font-medium"></span></div>
+                </div>
                 
-                <!-- Section สำหรับลิงก์ Google Meet -->
-                <div id="details-meet-section" style="display: none;" class="mt-3 bg-blue-50 p-3 rounded-lg border border-blue-100">
-                    <p class="flex items-center text-blue-800 font-semibold mb-1">
-                        <i class="fa-solid fa-video mr-2 text-blue-600"></i> ลิงก์เข้าร่วมการประชุม (Google Meet)
+                <div id="details-series-badge" class="hidden ml-9 bg-brand-peach/20 text-brand-orange px-3 py-1.5 rounded-lg border border-brand-peach/30 w-max">
+                    <i class="fa-solid fa-repeat mr-1"></i> <span class="font-medium text-xs">การจองแบบหลายวัน (Series)</span>
+                </div>
+                
+                <div id="details-meet-section" style="display: none;" class="mt-4 bg-blue-50/50 p-4 rounded-xl border border-blue-100">
+                    <p class="flex items-center text-blue-800 font-semibold mb-2 text-xs uppercase">
+                        <i class="fa-solid fa-video mr-2 text-brand-cyan"></i> ลิงก์เข้าร่วม (Google Meet)
                     </p>
-                    <a id="details-meet-link" href="#" target="_blank" class="text-blue-600 hover:text-blue-800 hover:underline break-all text-sm font-medium"></a>
+                    <a id="details-meet-link" href="#" target="_blank" class="text-brand-cyan hover:text-brand-lcyan hover:underline break-all font-medium"></a>
                 </div>
 
-                <div id="details-attendees-section" class="mt-3">
-                    <p><strong>ผู้เข้าร่วม:</strong> <span id="details-attendees" class="break-words block mt-1 text-sm bg-gray-100 p-2 rounded"></span></p>
+                <div id="details-attendees-section" class="mt-4 bg-gray-50 p-4 rounded-xl border border-gray-100">
+                    <p class="font-semibold text-xs uppercase text-brand-gray mb-2">ผู้เข้าร่วม</p>
+                    <span id="details-attendees" class="break-words block font-medium"></span>
                 </div>
             </div>
-            <div id="details-actions" class="flex justify-end space-x-2 mt-6">
-                <button class="btn-cancel px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300">ปิด</button>
-                <button id="btn-edit-booking" class="px-4 py-2 bg-yellow-500 text-white rounded-md hover:bg-yellow-600">แก้ไข</button>
-                <button id="btn-cancel-booking" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">ยกเลิกการจอง</button>
+            
+            <div id="details-actions" class="flex flex-wrap justify-end gap-2 mt-8">
+                <button id="btn-edit-booking" class="px-5 py-2.5 bg-brand-peach text-white font-medium rounded-xl hover:bg-[#d6a567] transition w-full sm:w-auto">แก้ไข / เปลี่ยนห้อง</button>
+                <button id="btn-cancel-single" class="px-5 py-2.5 border border-red-200 text-red-500 font-medium rounded-xl hover:bg-red-50 transition w-full sm:w-auto">ยกเลิกรายการนี้</button>
+                <button id="btn-cancel-series" class="hidden px-5 py-2.5 bg-red-50 text-red-600 font-bold rounded-xl hover:bg-red-100 transition w-full sm:w-auto"><i class="fa-solid fa-trash-can mr-1"></i> ยกเลิกทั้งซีรีส์</button>
+            </div>
             </div>
         </div>
     </div>
     
     <!-- Confirm Modal -->
     <div id="confirm-modal" class="modal">
-        <div class="modal-content">
-            <h2 id="confirm-modal-title" class="text-lg font-bold mb-4">ยืนยันการกระทำ</h2>
-            <p id="confirm-modal-body">คุณแน่ใจหรือไม่?</p>
-            <div class="flex justify-end space-x-2 mt-6">
-                <button id="confirm-cancel-btn" class="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300">ยกเลิก</button>
-                <button id="confirm-ok-btn" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">ยืนยัน</button>
+        <div class="modal-content text-center !max-w-sm">
+            <div class="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <h2 id="confirm-modal-title" class="text-xl font-bold mb-2 text-gray-800">ยืนยันการกระทำ</h2>
+            <p id="confirm-modal-body" class="text-gray-500 mb-8">คุณแน่ใจหรือไม่?</p>
+            <div class="flex justify-center gap-3">
+                <button id="confirm-cancel-btn" class="px-6 py-2.5 bg-gray-100 text-gray-700 font-medium rounded-xl hover:bg-gray-200 transition">ยกเลิก</button>
+                <button id="confirm-ok-btn" class="px-6 py-2.5 bg-red-500 text-white font-medium rounded-xl hover:bg-red-600 shadow-lg shadow-red-500/30 transition">ยืนยัน</button>
             </div>
         </div>
     </div>
     
     <!-- Loader Modal -->
-    <div id="loader" class="modal bg-opacity-75">
+    <div id="loader" class="modal bg-white/80 backdrop-blur-sm">
         <div class="loader-content">
-            <div id="car-loader-animation" style="display: none;"><i class="fa-solid fa-car animate-drive"></i></div>
-            <div id="room-loader-animation" style="display: none;"><i class="fa-solid fa-calendar-days animate-flip"></i></div>
-            <div id="admin-loader-animation" style="display: none;"><i class="fa-solid fa-shield-halved animate-pulse"></i></div>
-            <span>กำลังโหลด...</span>
+            <div id="car-loader-animation" style="display: none;"><i class="fa-solid fa-car animate-flip"></i></div>
+            <div id="room-loader-animation" style="display: none;"><i class="fa-solid fa-calendar-check animate-flip"></i></div>
+            <div id="admin-loader-animation" style="display: none;"><i class="fa-solid fa-shield animate-flip"></i></div>
+            <span class="text-brand-taupe">กำลังซิงค์ข้อมูล...</span>
         </div>
     </div>
 
     <!-- Message Box -->
-    <div id="message-box" class="fixed top-5 right-5 text-white py-2 px-4 rounded-lg shadow-lg z-[1002] transition-transform duration-300 translate-x-[120%]" style="display: none;"></div>
+    <div id="message-box" class="fixed bottom-8 left-1/2 -translate-x-1/2 text-white py-3 px-6 rounded-full shadow-2xl z-[2000] font-medium transition-all duration-300 transform translate-y-20 opacity-0 flex items-center gap-2"></div>
 
     <script>
     (() => {
         // --- Version Check & Cache Clear ---
-        // ตรวจสอบว่าเวอร์ชันที่เซิร์ฟเวอร์ส่งมา ตรงกับที่ User มีไหม
         const serverVersion = "<?= appVersion ?>";
         const localVersion = localStorage.getItem('app_version');
 
         if (serverVersion && localVersion !== serverVersion) {
-            console.log(`New version detected: ${serverVersion} (Old: ${localVersion}). Clearing cache.`);
-            localStorage.clear(); // เคลียร์ local storage
-            sessionStorage.clear(); // เคลียร์ session storage
-            localStorage.setItem('app_version', serverVersion); // บันทึกเวอร์ชันใหม่
-            window.location.reload(); // บังคับรีโหลดหน้าเว็บเพื่อใช้โค้ดใหม่
-            return; // หยุดการทำงานของสคริปต์เก่า
+            localStorage.clear(); sessionStorage.clear();
+            localStorage.setItem('app_version', serverVersion);
+            window.location.reload(); return;
         }
-        
-        // กรณีเข้ามาครั้งแรก
-        if (!localVersion) {
-             localStorage.setItem('app_version', serverVersion);
-        }
+        if (!localVersion) localStorage.setItem('app_version', serverVersion);
 
         // --- State Management ---
         const App = {
-            ui: {},
-            calendars: { room: null, car: null },
+            ui: {}, calendars: { room: null, car: null },
             state: {
                 currentPage: 'landing',
                 selectedResource: { room: null, car: null },
-                currentUserEmail: '',
-                currentEditingEvent: null,
-                confirmCallback: null,
+                currentUserEmail: '', currentEditingEvent: null, confirmCallback: null,
                 allData: { rooms: [], cars: [], roomBookings: [], carBookings: [], isAdmin: false },
-                attendees: [], 
-                directory: [] 
+                attendees: [], directory: [] 
             },
             timeSlots: { 
-                room: Array.from({ length: (18 - 7) * 2 + 1 }, (_, i) => {
-                    const h = 7 + Math.floor(i / 2);
-                    const m = (i % 2) * 30;
-                    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-                }),
-                car: Array.from({ length: 48 }, (_, i) => { 
-                    const h = Math.floor(i / 2);
-                    const m = (i % 2) * 30;
-                    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-                })
+                room: Array.from({ length: (18 - 7) * 2 + 1 }, (_, i) => { const h = 7 + Math.floor(i / 2); const m = (i % 2) * 30; return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`; }),
+                car: Array.from({ length: 48 }, (_, i) => { const h = Math.floor(i / 2); const m = (i % 2) * 30; return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`; })
             }
         };
 
-        // --- Initialization ---
         document.addEventListener('DOMContentLoaded', initializeApp);
 
         function initializeApp() {
             const { ui } = App;
             
-            ui.pages = {
-                landing: document.getElementById('landing-page'),
-                room: document.getElementById('room-booking-page'),
-                car: document.getElementById('car-booking-page'),
-            };
+            ui.pages = { landing: document.getElementById('landing-page'), room: document.getElementById('room-booking-page'), car: document.getElementById('car-booking-page') };
             ui.goToRoomsBtn = document.getElementById('go-to-rooms');
             ui.goToCarsBtn = document.getElementById('go-to-cars');
             ui.goToAdminBtn = document.getElementById('go-to-admin'); 
@@ -312,13 +427,26 @@
             ui.bookingModalTitle = document.getElementById('booking-modal-title');
             ui.bookingResourceName = document.getElementById('booking-resource-name');
             ui.bookingResourceIcon = document.getElementById('booking-resource-icon');
+            ui.bookingResourceImage = document.getElementById('booking-resource-image'); // รูปภาพใน Modal
+            ui.bookingCoverContainer = document.getElementById('booking-cover-container'); // Container ภาพหน้าปก
+            ui.bookingBtnCancelNoImg = document.getElementById('booking-btn-cancel-no-img'); // ปุ่มปิดกรณีไม่มีรูป
             ui.bookingTitle = document.getElementById('booking-title');
-            ui.bookingIsPrivate = document.getElementById('booking-is-private'); // Checkbox Private
+            ui.bookingIsPrivate = document.getElementById('booking-is-private'); 
+            
+            ui.changeResourceSection = document.getElementById('change-resource-section');
+            ui.bookingResourceSelect = document.getElementById('booking-resource-select');
+            ui.bookingStartDate = document.getElementById('booking-start-date');
+            ui.bookingEndDate = document.getElementById('booking-end-date');
+            ui.multiDayWarning = document.getElementById('multi-day-warning');
+            
+            // New Elements for Bulk Edit & Recurring Days
+            ui.recurringDaysSection = document.getElementById('recurring-days-section');
+            ui.recurringDayCheckboxes = document.querySelectorAll('input[name="recurring-day"]');
+            ui.editSeriesSection = document.getElementById('edit-series-section');
+            ui.bookingEditSeries = document.getElementById('booking-edit-series');
             
             ui.attendeesSection = document.getElementById('attendees-section'); 
             ui.bookingId = document.getElementById('booking-id');
-            ui.bookingDateDisplay = document.getElementById('booking-date-display');
-            ui.bookingDateInput = document.getElementById('booking-date');
             ui.bookingStartTime = document.getElementById('booking-start-time');
             ui.bookingEndTime = document.getElementById('booking-end-time');
             ui.bookingDuration = document.getElementById('booking-duration');
@@ -328,16 +456,20 @@
             ui.detailsTitle = document.getElementById('details-title');
             ui.detailsResourceLabel = document.getElementById('details-resource-label');
             ui.detailsResource = document.getElementById('details-resource');
+            ui.detailsResourceImage = document.getElementById('details-resource-image'); // รูปภาพใน Details Modal
+            ui.detailsCoverContainer = document.getElementById('details-cover-container'); // Container ภาพหน้าปก
+            ui.detailsBtnCancelNoImg = document.getElementById('details-btn-cancel-no-img'); // ปุ่มปิดกรณีไม่มีรูป
             ui.detailsTime = document.getElementById('details-time');
             ui.detailsUser = document.getElementById('details-user');
-            
             ui.detailsMeetSection = document.getElementById('details-meet-section'); 
             ui.detailsMeetLink = document.getElementById('details-meet-link');       
-
             ui.detailsAttendeesSection = document.getElementById('details-attendees-section');
             ui.detailsAttendees = document.getElementById('details-attendees');
+            ui.detailsSeriesBadge = document.getElementById('details-series-badge');
+            
             ui.btnEditBooking = document.getElementById('btn-edit-booking');
-            ui.btnCancelBooking = document.getElementById('btn-cancel-booking');
+            ui.btnCancelSingle = document.getElementById('btn-cancel-single');
+            ui.btnCancelSeries = document.getElementById('btn-cancel-series');
             
             ui.confirmModal = document.getElementById('confirm-modal');
             ui.confirmModalTitle = document.getElementById('confirm-modal-title');
@@ -362,7 +494,6 @@
         // --- Attendee Manager ---
         function setupAttendeeManager() {
             const { ui, state } = App;
-            
             ui.chipsWrapper = document.getElementById('chips-wrapper');
             ui.attendeesInput = document.getElementById('booking-attendees-input');
             ui.autocompleteList = document.getElementById('autocomplete-list');
@@ -374,89 +505,62 @@
 
             ui.attendeesInput.addEventListener('input', (e) => {
                 const val = e.target.value.toLowerCase().trim();
-                if (!val) {
-                    ui.autocompleteList.classList.add('hidden');
-                    return;
-                }
-                
-                const matches = state.directory.filter(u => 
-                    u.name.toLowerCase().includes(val) || u.email.toLowerCase().includes(val)
-                );
+                if (!val) { ui.autocompleteList.classList.add('hidden'); return; }
+                const matches = state.directory.filter(u => u.name.toLowerCase().includes(val) || u.email.toLowerCase().includes(val));
                 
                 if (matches.length > 0) {
                     ui.autocompleteList.innerHTML = matches.map(u => `
-                        <li class="px-4 py-2 hover:bg-indigo-50 cursor-pointer flex flex-col border-b border-gray-100 last:border-0" data-email="${u.email}">
+                        <li class="px-4 py-3 hover:bg-brand-cyan/10 cursor-pointer flex flex-col border-b border-gray-100 last:border-0" data-email="${u.email}">
                             <span class="font-medium text-gray-800">${u.name}</span>
-                            <span class="text-xs text-gray-500">${u.email}</span>
+                            <span class="text-xs text-brand-taupe">${u.email}</span>
                         </li>
                     `).join('');
                 } else {
                     const displayVal = val.includes('@') ? val : val + '@beneat.co';
-                    ui.autocompleteList.innerHTML = `
-                        <li class="px-4 py-2 hover:bg-indigo-50 cursor-pointer flex flex-col" data-email="${displayVal}">
-                            <span class="font-medium text-gray-800">เพิ่มรายชื่อใหม่</span>
-                            <span class="text-xs text-indigo-600">${displayVal}</span>
-                        </li>
-                    `;
+                    ui.autocompleteList.innerHTML = `<li class="px-4 py-3 hover:bg-brand-cyan/10 cursor-pointer flex flex-col" data-email="${displayVal}"><span class="font-medium text-gray-800">เพิ่มรายชื่อใหม่</span><span class="text-xs text-brand-cyan">${displayVal}</span></li>`;
                 }
                 ui.autocompleteList.classList.remove('hidden');
             });
 
             ui.autocompleteList.addEventListener('click', (e) => {
                 const li = e.target.closest('li');
-                if (li && li.dataset.email) {
-                    addAttendee(li.dataset.email);
-                }
+                if (li && li.dataset.email) addAttendee(li.dataset.email);
             });
 
             ui.attendeesInput.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter' || e.key === ',') {
                     e.preventDefault();
-                    if (ui.attendeesInput.value.trim() !== '') {
-                        addAttendee(ui.attendeesInput.value);
-                    }
+                    if (ui.attendeesInput.value.trim() !== '') addAttendee(ui.attendeesInput.value);
                 } else if (e.key === 'Backspace' && ui.attendeesInput.value === '') {
-                    if (state.attendees.length > 0) {
-                        removeAttendee(state.attendees.length - 1);
-                    }
+                    if (state.attendees.length > 0) removeAttendee(state.attendees.length - 1);
                 }
             });
 
             document.addEventListener('click', (e) => {
-                if (!e.target.closest('#attendees-container') && !e.target.closest('#autocomplete-list')) {
-                    ui.autocompleteList.classList.add('hidden');
-                }
+                if (!e.target.closest('#attendees-container') && !e.target.closest('#autocomplete-list')) ui.autocompleteList.classList.add('hidden');
             });
 
             ui.chipsWrapper.addEventListener('click', (e) => {
-                if (e.target.classList.contains('remove-chip')) {
-                    const index = e.target.dataset.index;
-                    removeAttendee(index);
-                }
+                if (e.target.classList.contains('remove-chip')) removeAttendee(e.target.dataset.index);
             });
 
             ui.btnCheckAvailability.addEventListener('click', () => {
                 if(state.attendees.length === 0) return;
-                
                 ui.btnCheckAvailability.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i>กำลังเช็ค...';
-                ui.btnCheckAvailability.disabled = true;
-                ui.availabilityResult.classList.add('hidden');
-                ui.availabilityResult.innerHTML = '';
+                ui.btnCheckAvailability.disabled = true; ui.availabilityResult.classList.add('hidden'); ui.availabilityResult.innerHTML = '';
 
-                const startStr = `${ui.bookingDateInput.value}T${ui.bookingStartTime.value}:00`;
-                const endStr = `${ui.bookingDateInput.value}T${ui.bookingEndTime.value}:00`;
+                const startStr = `${ui.bookingStartDate.value}T${ui.bookingStartTime.value}:00`;
+                const endStr = `${ui.bookingStartDate.value}T${ui.bookingEndTime.value}:00`;
 
                 google.script.run
                     .withSuccessHandler(res => {
                         ui.btnCheckAvailability.innerHTML = '<i class="fa-solid fa-calendar-check mr-1"></i>เช็คคิวว่าง';
                         ui.btnCheckAvailability.disabled = false;
-                        
                         if (res.success && res.busyEmails.length > 0) {
                             const busyNames = res.busyEmails.map(email => {
                                 const dirUser = state.directory.find(u => u.email === email);
                                 return dirUser ? `<b>${dirUser.name.split(' ')[0]}</b>` : email;
                             }).join(', ');
-                            
                             ui.availabilityResult.innerHTML = `<i class="fa-solid fa-circle-exclamation mr-1"></i> พบผู้เข้าร่วมติดคิวในช่วงเวลานี้: <br> ${busyNames}`;
                             ui.availabilityResult.classList.remove('hidden');
                         } else if (res.success && res.busyEmails.length === 0) {
@@ -469,8 +573,7 @@
                         ui.btnCheckAvailability.innerHTML = '<i class="fa-solid fa-calendar-check mr-1"></i>เช็คคิวว่าง';
                         ui.btnCheckAvailability.disabled = false;
                         showMessage('ข้อผิดพลาด: ' + err.message, true);
-                    })
-                    .checkAttendeesAvailability(state.attendees, startStr, endStr);
+                    }).checkAttendeesAvailability(state.attendees, startStr, endStr);
             });
         }
 
@@ -478,21 +581,13 @@
             let email = emailOrName.trim().toLowerCase();
             if (!email) return;
             if (!email.includes('@')) email = email + '@beneat.co';
-            
-            if (!App.state.attendees.includes(email)) {
-                App.state.attendees.push(email);
-                renderAttendees();
-            }
-            
-            App.ui.attendeesInput.value = '';
-            App.ui.autocompleteList.classList.add('hidden');
-            App.ui.attendeesInput.focus();
+            if (!App.state.attendees.includes(email)) { App.state.attendees.push(email); renderAttendees(); }
+            App.ui.attendeesInput.value = ''; App.ui.autocompleteList.classList.add('hidden'); App.ui.attendeesInput.focus();
         }
 
         function removeAttendee(index) {
             App.state.attendees.splice(index, 1);
-            renderAttendees();
-            App.ui.availabilityResult.classList.add('hidden'); 
+            renderAttendees(); App.ui.availabilityResult.classList.add('hidden'); 
         }
 
         function renderAttendees() {
@@ -500,25 +595,14 @@
             ui.chipsWrapper.innerHTML = '';
             state.attendees.forEach((email, index) => {
                 const chip = document.createElement('span');
-                chip.className = 'bg-indigo-100 text-indigo-800 px-2 py-1 rounded-md text-sm flex items-center gap-1 shadow-sm font-medium';
-                
+                chip.className = 'bg-brand-cyan/10 text-brand-cyan px-2 py-1 rounded-md text-sm flex items-center gap-1 font-medium border border-brand-cyan/20';
                 const dirUser = state.directory.find(u => u.email === email);
-                let displayText = email;
-                if (dirUser) displayText = dirUser.name.split(' ')[0]; 
-
-                chip.innerHTML = `
-                    <span>${displayText}</span>
-                    <i class="fa-solid fa-xmark cursor-pointer hover:text-red-600 remove-chip ml-1" data-index="${index}"></i>
-                `;
+                let displayText = dirUser ? dirUser.name.split(' ')[0] : email; 
+                chip.innerHTML = `<span>${displayText}</span><i class="fa-solid fa-xmark cursor-pointer hover:text-red-500 remove-chip ml-1" data-index="${index}"></i>`;
                 ui.chipsWrapper.appendChild(chip);
             });
-
-            if(state.attendees.length > 0) {
-                ui.btnCheckAvailability.classList.remove('hidden');
-            } else {
-                ui.btnCheckAvailability.classList.add('hidden');
-                ui.availabilityResult.classList.add('hidden');
-            }
+            if(state.attendees.length > 0) ui.btnCheckAvailability.classList.remove('hidden');
+            else { ui.btnCheckAvailability.classList.add('hidden'); ui.availabilityResult.classList.add('hidden'); }
         }
 
         // --- Page Navigation ---
@@ -526,13 +610,10 @@
             App.state.currentPage = pageId;
             Object.values(App.ui.pages).forEach(page => page.classList.remove('active'));
             App.ui.pages[pageId].classList.add('active');
-            
             if (pageId !== 'landing') {
                 sessionStorage.setItem('currentPage', pageId);
                 initializeCalendar(pageId);
-            } else {
-                sessionStorage.removeItem('currentPage');
-            }
+            } else sessionStorage.removeItem('currentPage');
         }
 
         function initialLoad() {
@@ -545,20 +626,12 @@
                     renderResourceButtons('room', data.rooms);
                     renderResourceButtons('car', data.cars);
                     
-                    if (data.isAdmin) {
-                        App.ui.goToAdminBtn.style.display = 'block';
-                    }
-                    
+                    if (data.isAdmin) App.ui.goToAdminBtn.style.display = 'flex';
                     const lastPage = sessionStorage.getItem('currentPage');
-                    if (lastPage && lastPage !== 'landing') showPage(lastPage);
-                    else showPage('landing');
-                    
+                    if (lastPage && lastPage !== 'landing') showPage(lastPage); else showPage('landing');
                     showLoader(false);
                 })
-                .withFailureHandler(err => {
-                    showMessage(err.message, true);
-                    showLoader(false);
-                })
+                .withFailureHandler(err => { showMessage(err.message, true); showLoader(false); })
                 .getInitialData();
         }
         
@@ -573,48 +646,60 @@
                     if(data.directory && data.directory.length > 0) state.directory = data.directory; 
                     
                     if (JSON.stringify(state.allData.rooms) !== JSON.stringify(data.rooms)) {
-                        state.allData.rooms = data.rooms;
-                        renderResourceButtons('room', data.rooms);
+                        state.allData.rooms = data.rooms; renderResourceButtons('room', data.rooms);
                     }
                     if (JSON.stringify(state.allData.cars) !== JSON.stringify(data.cars)) {
-                        state.allData.cars = data.cars;
-                        renderResourceButtons('car', data.cars);
+                        state.allData.cars = data.cars; renderResourceButtons('car', data.cars);
                     }
-                    
-                    if (state.currentPage === 'landing') {
-                        App.ui.goToAdminBtn.style.display = data.isAdmin ? 'block' : 'none';
-                    }
+                    if (state.currentPage === 'landing') App.ui.goToAdminBtn.style.display = data.isAdmin ? 'flex' : 'none';
 
                     App.calendars.room?.refetchEvents();
                     App.calendars.car?.refetchEvents();
-                    
                     if (!isSilent) showLoader(false);
                 })
-                .withFailureHandler(err => {
-                    if (!isSilent) showMessage(err.message, true);
-                    if (!isSilent) showLoader(false);
-                })
+                .withFailureHandler(err => { if (!isSilent) showMessage(err.message, true); if (!isSilent) showLoader(false); })
                 .getInitialData();
         }
 
         function renderResourceButtons(type, resources) {
             const container = (type === 'room') ? App.ui.roomButtonsContainer : App.ui.carButtonsContainer;
             container.innerHTML = '';
-            let currentSelection = App.state.selectedResource[type];
             
-            if (!resources.includes(currentSelection)) {
-                currentSelection = resources.length > 0 ? resources[0] : null;
-                App.state.selectedResource[type] = currentSelection;
+            let currentSelectionName = App.state.selectedResource[type];
+            let firstResourceName = resources.length > 0 ? (typeof resources[0] === 'object' ? resources[0].name : resources[0]) : null;
+            
+            const isResourceExists = resources.some(r => {
+                const name = typeof r === 'object' ? r.name : r;
+                return name === currentSelectionName;
+            });
+
+            if (!isResourceExists) {
+                currentSelectionName = firstResourceName;
+                App.state.selectedResource[type] = currentSelectionName;
             }
             
             if (resources.length > 0) {
-                resources.forEach(name => {
-                    const button = document.createElement('button');
-                    button.dataset.resourceName = name;
-                    button.className = 'resource-button flex-shrink-0 px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 font-medium text-gray-700';
-                    button.textContent = name;
-                    if (name === currentSelection) button.classList.add('selected');
-                    container.appendChild(button);
+                resources.forEach(item => {
+                    const name = typeof item === 'object' ? item.name : item;
+                    const image = typeof item === 'object' ? item.image : null;
+                    const isSelected = name === currentSelectionName;
+
+                    if (image) {
+                        const cardHtml = `
+                            <div class="room-card flex-shrink-0 ${isSelected ? 'selected' : ''}" data-resource-name="${name}">
+                                <img src="${image}" alt="${name}" onerror="this.src='https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=800'">
+                                <div class="overlay"><span class="title">${name}</span></div>
+                            </div>
+                        `;
+                        container.insertAdjacentHTML('beforeend', cardHtml);
+                    } else {
+                        const button = document.createElement('button');
+                        button.dataset.resourceName = name;
+                        button.className = 'resource-button flex-shrink-0 px-5 py-2.5 font-medium text-gray-700 whitespace-nowrap';
+                        button.textContent = name;
+                        if (isSelected) button.classList.add('selected');
+                        container.appendChild(button);
+                    }
                 });
             } else {
                 container.innerHTML = `<p class="text-gray-500">ไม่มี${type === 'room' ? 'ห้อง' : 'รถ'}ให้บริการ</p>`;
@@ -623,48 +708,37 @@
         }
         
         function initializeCalendar(type) {
-            if (App.calendars[type]) { 
-                App.calendars[type].refetchEvents(); return; 
-            }
-            
+            if (App.calendars[type]) { App.calendars[type].refetchEvents(); return; }
             const calendarEl = document.getElementById(`${type}-calendar`);
             const calOptions = { 
                 initialView: 'dayGridMonth',
                 headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,listWeek' },
-                locale: 'th',
-                buttonText: { today: 'วันนี้', month: 'เดือน', week: 'สัปดาห์', list: 'รายการ' },
+                locale: 'th', buttonText: { today: 'วันนี้', month: 'เดือน', week: 'สัปดาห์', list: 'รายการ' },
                 height: '100%', expandRows: true, slotDuration: '00:30:00',
                 slotLabelFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
-                
                 events: (fetchInfo, successCallback) => {
                     const selected = App.state.selectedResource[type];
                     if (!selected) { successCallback([]); return; }
                     const bookings = (type === 'room') ? App.state.allData.roomBookings : App.state.allData.carBookings;
                     successCallback(bookings.filter(event => event[type] === selected));
                 },
-                
                 eventContent: (arg) => {
                     const startTime = formatTime(new Date(arg.event.start));
                     const endTime = formatTime(new Date(arg.event.end));
                     const timeText = `<div class="fc-event-time">${startTime} - ${endTime}</div>`;
-                    const titleText = `<div class="fc-event-title">${arg.event.title}</div>`;
+                    const titleText = `<div class="fc-event-title truncate">${arg.event.title}</div>`;
                     if (arg.view.type.includes('list')) return { html: titleText };
                     return { html: `${timeText}${titleText}` };
                 },
-                
                 dateClick: (info) => handleDateClick(info, type),
                 eventClick: (info) => handleEventClick(info, type)
             };
 
-            if (type === 'room') {
-                calOptions.slotMinTime = '07:00:00'; calOptions.slotMaxTime = '18:00:00'; calOptions.slotLabelInterval = '00:30:00';
-            } else { 
-                calOptions.slotMinTime = '00:00:00'; calOptions.slotMaxTime = '24:00:00'; calOptions.slotLabelInterval = '01:00:00'; 
-            }
+            if (type === 'room') { calOptions.slotMinTime = '07:00:00'; calOptions.slotMaxTime = '18:00:00'; calOptions.slotLabelInterval = '00:30:00'; } 
+            else { calOptions.slotMinTime = '00:00:00'; calOptions.slotMaxTime = '24:00:00'; calOptions.slotLabelInterval = '01:00:00'; }
 
             const cal = new FullCalendar.Calendar(calendarEl, calOptions);
-            cal.render();
-            App.calendars[type] = cal;
+            cal.render(); App.calendars[type] = cal;
         }
 
         function setupEventListeners() {
@@ -675,11 +749,8 @@
             
             ui.goToAdminBtn.addEventListener('click', () => {
                 if (App.state.allData && App.state.allData.adminUrl) {
-                    showLoader(true, 'admin'); 
-                    window.open(App.state.allData.adminUrl, '_top');
-                } else {
-                    showMessage('เกิดข้อผิดพลาด: ไม่พบ URL ของหน้า Admin', true);
-                }
+                    showLoader(true, 'admin'); window.open(App.state.allData.adminUrl, '_top');
+                } else showMessage('เกิดข้อผิดพลาด: ไม่พบ URL ของหน้า Admin', true);
             });
 
             ui.backToLandingBtns.forEach(btn => btn.addEventListener('click', () => showPage('landing')));
@@ -688,35 +759,58 @@
             ui.roomButtonsContainer.addEventListener('click', (e) => handleResourceSelect(e, 'room'));
             ui.carButtonsContainer.addEventListener('click', (e) => handleResourceSelect(e, 'car'));
             
-            ui.bookingStartTime.addEventListener('change', () => { 
-                updateEndTimeOptions(); 
-                calculateAndDisplayDuration();
-                ui.availabilityResult.classList.add('hidden'); 
-            });
-            ui.bookingEndTime.addEventListener('change', () => {
-                calculateAndDisplayDuration();
-                ui.availabilityResult.classList.add('hidden'); 
-            });
-            ui.submitBookingBtn.addEventListener('click', handleBookingSubmit);
+            ui.bookingStartTime.addEventListener('change', () => { updateEndTimeOptions(); calculateAndDisplayDuration(); ui.availabilityResult.classList.add('hidden'); });
+            ui.bookingEndTime.addEventListener('change', () => { calculateAndDisplayDuration(); ui.availabilityResult.classList.add('hidden'); });
             
+            // ตรวจจับการเปลี่ยน End Date เพื่อแสดง/ซ่อน ระบบเลือกวัน Recurring
+            ui.bookingEndDate.addEventListener('change', () => {
+                if (ui.bookingEndDate.value && ui.bookingEndDate.value !== ui.bookingStartDate.value) {
+                    ui.multiDayWarning.style.display = 'block';
+                    if(!ui.bookingId.value) { // แสดง Checkbox วันเฉพาะตอนสร้างใหม่เท่านั้น
+                        ui.recurringDaysSection.style.display = 'block';
+                    }
+                } else {
+                    ui.multiDayWarning.style.display = 'none';
+                    ui.recurringDaysSection.style.display = 'none';
+                }
+            });
+
+            // อัปเดตรูปภาพเมื่อเปลี่ยนห้องใน Dropdown แก้ไข
+            ui.bookingResourceSelect.addEventListener('change', (e) => {
+                const newName = e.target.value;
+                ui.bookingResourceName.textContent = newName;
+                const type = App.state.currentPage;
+                const resourceList = type === 'room' ? App.state.allData.rooms : App.state.allData.cars;
+                const resourceObj = resourceList.find(r => (typeof r === 'object' ? r.name : r) === newName);
+                
+                if (resourceObj && resourceObj.image) {
+                    ui.bookingResourceImage.src = resourceObj.image;
+                    ui.bookingCoverContainer.classList.remove('hidden');
+                    ui.bookingBtnCancelNoImg.classList.add('hidden');
+                } else {
+                    ui.bookingCoverContainer.classList.add('hidden');
+                    ui.bookingBtnCancelNoImg.classList.remove('hidden');
+                }
+            });
+
+            ui.submitBookingBtn.addEventListener('click', handleBookingSubmit);
             ui.btnEditBooking.addEventListener('click', handleEditBooking);
-            ui.btnCancelBooking.addEventListener('click', handleCancelBooking);
+            ui.btnCancelSingle.addEventListener('click', () => handleCancelBooking(false));
+            ui.btnCancelSeries.addEventListener('click', () => handleCancelBooking(true));
             
             ui.confirmOkBtn.addEventListener('click', () => {
-                if (typeof App.state.confirmCallback === 'function') {
-                    App.state.confirmCallback();
-                }
+                if (typeof App.state.confirmCallback === 'function') App.state.confirmCallback();
                 ui.confirmModal.classList.remove('flex');
             });
             ui.confirmCancelBtn.addEventListener('click', () => ui.confirmModal.classList.remove('flex'));
         }
         
         function handleResourceSelect(event, type) {
-             const btn = event.target.closest('.resource-button');
+             const btn = event.target.closest('.resource-button') || event.target.closest('.room-card');
              if (btn) {
                 App.state.selectedResource[type] = btn.dataset.resourceName;
                 const container = (type === 'room') ? App.ui.roomButtonsContainer : App.ui.carButtonsContainer;
-                container.querySelectorAll('.resource-button').forEach(b => b.classList.remove('selected'));
+                container.querySelectorAll('.resource-button, .room-card').forEach(b => b.classList.remove('selected'));
                 btn.classList.add('selected');
                 App.calendars[type]?.refetchEvents();
             }
@@ -724,10 +818,7 @@
         
         function handleDateClick(info, type) {
             const selected = App.state.selectedResource[type];
-            if (!selected) { 
-                showMessage(`กรุณาเลือก${type === 'room' ? 'ห้อง' : 'รถ'}ก่อน`, true); 
-                return; 
-            }
+            if (!selected) { showMessage(`กรุณาเลือก${type === 'room' ? 'ห้อง' : 'รถ'}ก่อน`, true); return; }
             openBookingModal({ dateStr: info.dateStr, type });
         }
         
@@ -738,34 +829,44 @@
             
             ui.detailsTitle.textContent = props.fullTitle;
             ui.detailsResourceLabel.textContent = type === 'room' ? 'ห้อง:' : 'รถ:';
-            ui.detailsResource.textContent = App.state.selectedResource[type];
-            ui.detailsTime.textContent = `${formatTime(new Date(info.event.start))} - ${formatTime(new Date(info.event.end))}`;
+            const resourceNameStr = props.room || props.car || App.state.selectedResource[type];
+            ui.detailsResource.textContent = resourceNameStr;
+            ui.detailsTime.textContent = `${info.event.start.toLocaleDateString('th-TH')} ${formatTime(info.event.start)} - ${formatTime(info.event.end)}`;
             ui.detailsUser.textContent = props.bookedBy;
+
+            const resourceList = type === 'room' ? state.allData.rooms : state.allData.cars;
+            const resourceObj = resourceList.find(r => (typeof r === 'object' ? r.name : r) === resourceNameStr);
+            if (resourceObj && resourceObj.image) {
+                ui.detailsResourceImage.src = resourceObj.image;
+                ui.detailsCoverContainer.classList.remove('hidden');
+                ui.detailsBtnCancelNoImg.classList.add('hidden');
+            } else {
+                ui.detailsCoverContainer.classList.add('hidden');
+                ui.detailsBtnCancelNoImg.classList.remove('hidden');
+            }
             
-            // แสดง/ซ่อน ลิงก์ Google Meet
             if (props.meetLink) {
                 ui.detailsMeetSection.style.display = 'block';
                 ui.detailsMeetLink.href = props.meetLink;
                 ui.detailsMeetLink.textContent = props.meetLink;
-            } else {
-                ui.detailsMeetSection.style.display = 'none';
-            }
+            } else ui.detailsMeetSection.style.display = 'none';
             
-            if (type === 'car') {
-                ui.detailsAttendeesSection.style.display = 'none';
-            } else {
+            if (type === 'car') ui.detailsAttendeesSection.style.display = 'none';
+            else {
                 ui.detailsAttendeesSection.style.display = 'block';
                 const formattedAttendees = (props.attendees || "").split(',').filter(Boolean).map(email => {
-                    email = email.trim();
-                    const dirUser = App.state.directory.find(u => u.email === email);
-                    return dirUser ? dirUser.name : email;
+                    const dirUser = App.state.directory.find(u => u.email === email.trim());
+                    return dirUser ? dirUser.name : email.trim();
                 }).join(', ');
                 ui.detailsAttendees.innerHTML = formattedAttendees || '<span class="text-gray-400">ไม่มีผู้เข้าร่วม</span>';
             }
             
+            const hasSeries = !!props.seriesId;
+            ui.detailsSeriesBadge.style.display = hasSeries ? 'inline-block' : 'none';
+            ui.btnCancelSeries.style.display = hasSeries ? 'block' : 'none';
+            
             const canModify = (props.bookedBy === state.currentUserEmail) || state.allData.isAdmin;
-            ui.btnEditBooking.style.display = canModify ? 'inline-block' : 'none';
-            ui.btnCancelBooking.style.display = canModify ? 'inline-block' : 'none';
+            document.getElementById('details-actions').style.display = canModify ? 'flex' : 'none';
 
             ui.eventDetailsModal.classList.add('flex');
         }
@@ -773,18 +874,16 @@
         function handleEditBooking() {
             const { state, ui } = App;
             if (!state.currentEditingEvent) return;
-            
             ui.eventDetailsModal.classList.remove('flex');
-            
             openBookingModal({
-                type: state.currentPage,
-                isEditing: true,
+                type: state.currentPage, isEditing: true,
                 bookingId: state.currentEditingEvent.extendedProps.bookingId,
+                seriesId: state.currentEditingEvent.extendedProps.seriesId, // ส่งค่า Series ID เข้าไปด้วย
                 fullTitle: state.currentEditingEvent.extendedProps.fullTitle,
-                start: new Date(state.currentEditingEvent.start),
-                end: new Date(state.currentEditingEvent.end),
+                start: new Date(state.currentEditingEvent.start), end: new Date(state.currentEditingEvent.end),
                 attendees: state.currentEditingEvent.extendedProps.attendees,
-                isPrivate: state.currentEditingEvent.extendedProps.isPrivate // ส่งค่า Private ไปที่ฟอร์ม
+                isPrivate: state.currentEditingEvent.extendedProps.isPrivate,
+                roomData: state.currentEditingEvent.extendedProps.room || state.currentEditingEvent.extendedProps.car 
             });
         }
         
@@ -794,131 +893,161 @@
             const bookingId = ui.bookingId.value;
             const isEditing = !!bookingId;
 
-            if (ui.attendeesInput.value.trim() !== '' && state.currentPage === 'room') {
-                addAttendee(ui.attendeesInput.value);
+            if (ui.attendeesInput.value.trim() !== '' && state.currentPage === 'room') addAttendee(ui.attendeesInput.value);
+
+            // ดึงค่าวันที่ต้องการให้เกิดการจองซ้ำ (เฉพาะถ้าไม่ได้แก้)
+            let selectedDaysArr = [];
+            if (!isEditing && ui.bookingEndDate.value && ui.bookingEndDate.value !== ui.bookingStartDate.value) {
+                ui.recurringDayCheckboxes.forEach(cb => { if(cb.checked) selectedDaysArr.push(cb.value); });
+                if(selectedDaysArr.length === 0) {
+                    showMessage('กรุณาเลือกวันในสัปดาห์อย่างน้อย 1 วัน', true); return;
+                }
+            }
+            
+            if (new Date(`${ui.bookingStartDate.value}T${ui.bookingStartTime.value}`) >= new Date(`${ui.bookingStartDate.value}T${ui.bookingEndTime.value}`)) {
+                showMessage('เวลาสิ้นสุดต้องอยู่หลังเวลาเริ่มต้น', true); return;
             }
 
             const formData = {
                 title: ui.bookingTitle.value.trim(),
-                startTime: `${ui.bookingDateInput.value}T${ui.bookingStartTime.value}`,
-                endTime: `${ui.bookingDateInput.value}T${ui.bookingEndTime.value}`,
-                resource: state.selectedResource[state.currentPage],
+                resource: isEditing ? ui.bookingResourceSelect.value : state.selectedResource[state.currentPage], 
+                startDate: ui.bookingStartDate.value,
+                endDate: ui.bookingEndDate.value || ui.bookingStartDate.value,
+                // แก้ไขตรงนี้ ส่งวันที่ไปด้วยเพื่อป้องกัน Invalid Date ฝั่งเซิร์ฟเวอร์
+                startTime: isEditing ? `${ui.bookingStartDate.value}T${ui.bookingStartTime.value}` : ui.bookingStartTime.value,
+                endTime: isEditing ? `${ui.bookingStartDate.value}T${ui.bookingEndTime.value}` : ui.bookingEndTime.value,
                 attendees: state.currentPage === 'room' ? state.attendees.join(',') : "",
-                isPrivate: ui.bookingIsPrivate.checked // ส่งค่า checkbox ไปด้วย
+                isPrivate: ui.bookingIsPrivate.checked,
+                selectedDays: selectedDaysArr, // ส่ง array กลับไป
+                editSeries: isEditing ? ui.bookingEditSeries.checked : false // ตรวจสอบว่าต้องการ Bulk Edit หรือไม่
             };
 
             if (isEditing) formData.bookingId = bookingId;
 
             if (!formData.title) { showMessage('กรุณาใส่หัวข้อ', true); return; }
-            if (new Date(formData.startTime) >= new Date(formData.endTime)) {
-                showMessage('เวลาสิ้นสุดต้องอยู่หลังเวลาเริ่มต้น', true); return;
+            if (new Date(formData.startDate) > new Date(formData.endDate)) {
+                showMessage('วันที่สิ้นสุดต้องไม่ก่อนวันที่เริ่มต้น', true); return;
             }
             
-            btn.disabled = true;
-            showLoader(true, state.currentPage);
+            btn.disabled = true; showLoader(true, state.currentPage);
             
-            let serverFunction = isEditing 
-                ? (state.currentPage === 'room' ? 'updateRoomBooking' : 'updateCarBooking') 
-                : (state.currentPage === 'room' ? 'submitRoomBooking' : 'submitCarBooking');
+            let serverFunction = isEditing ? (state.currentPage === 'room' ? 'updateRoomBooking' : 'updateCarBooking') : (state.currentPage === 'room' ? 'submitRoomBooking' : 'submitCarBooking');
             
             google.script.run
                 .withSuccessHandler(res => {
-                    showMessage(res.message);
-                    ui.bookingModal.classList.remove('flex');
-                    reloadData(); 
+                    showMessage(res.message); ui.bookingModal.classList.remove('flex');
+                    
+                    // เพิ่มบรรทัดนี้: อัปเดตห้องใหม่ที่เลือกใน UI เพื่อให้ปฏิทินแสดงข้อมูลห้องใหม่
+                    if (isEditing && formData.resource !== state.selectedResource[state.currentPage]) {
+                        state.selectedResource[state.currentPage] = formData.resource;
+                        renderResourceButtons(state.currentPage, state.allData[state.currentPage + 's']);
+                    }
+                    
+                    reloadData(); btn.disabled = false;
                 })
                 .withFailureHandler(err => {
-                    showMessage(err.message, true);
-                    showLoader(false);
-                    btn.disabled = false;
-                })
-                [serverFunction](formData);
+                    showMessage(err.message, true); showLoader(false); btn.disabled = false;
+                })[serverFunction](formData);
         }
         
-        function handleCancelBooking() {
+        function handleCancelBooking(cancelSeries = false) {
             const { state, ui } = App;
             if (!state.currentEditingEvent) return;
-            
             const { bookingId, fullTitle } = state.currentEditingEvent.extendedProps;
             const type = state.currentPage;
 
-            showConfirmation(
-                'ยืนยันการยกเลิก', 
-                `คุณต้องการยกเลิกการจอง <strong>"${fullTitle}"</strong> ใช่หรือไม่?<br><span class="text-sm text-red-500">*การยกเลิกจะลบกิจกรรมออกจากปฏิทินด้วย</span>`, 
-                () => {
-                    showLoader(true, type);
-                    ui.eventDetailsModal.classList.remove('flex');
+            let msg = `คุณต้องการยกเลิกการจอง <strong>"${fullTitle}"</strong> ใช่หรือไม่?`;
+            if(cancelSeries) msg = `คุณต้องการยกเลิกการจอง <strong>"${fullTitle}" ทั้งซีรีส์ (ทุกวันที่จองไว้)</strong> ใช่หรือไม่?`;
+
+            showConfirmation(cancelSeries ? 'ยกเลิกทั้งซีรีส์' : 'ยืนยันการยกเลิก', msg, () => {
+                    showLoader(true, type); ui.eventDetailsModal.classList.remove('flex');
                     const serverFunction = (type === 'room') ? 'cancelRoomBooking' : 'cancelCarBooking';
-                    
                     google.script.run
-                        .withSuccessHandler(res => {
-                            showMessage(res.message);
-                            reloadData(); 
-                        })
-                        .withFailureHandler(err => {
-                            showMessage(err.message, true);
-                            showLoader(false);
-                        })
-                        [serverFunction](bookingId);
-                }
-            );
+                        .withSuccessHandler(res => { showMessage(res.message); reloadData(); })
+                        .withFailureHandler(err => { showMessage(err.message, true); showLoader(false); })
+                        [serverFunction](bookingId, cancelSeries);
+            });
         }
         
         // --- Form Modal Logic ---
         function openBookingModal(options = {}) {
-            const { dateStr, type, isEditing = false, bookingId, fullTitle, start, end, attendees, isPrivate } = options;
+            const { dateStr, type, isEditing = false, bookingId, seriesId, fullTitle, start, end, attendees, isPrivate, roomData } = options;
             const { ui, state } = App;
-            const resourceTypeName = type === 'room' ? 'ห้องประชุม' : 'รถยนต์';
-            const relevantTimeSlots = App.timeSlots[type]; 
             
-            ui.bookingId.value = '';
-            ui.bookingTitle.value = '';
+            ui.bookingId.value = ''; ui.bookingTitle.value = '';
             
-            if (type === 'car') {
-                ui.attendeesSection.style.display = 'none';
-            } else {
+            if (type === 'car') ui.attendeesSection.style.display = 'none';
+            else {
                 ui.attendeesSection.style.display = 'block';
                 state.attendees = attendees ? attendees.split(',').map(e => e.trim()).filter(Boolean) : [];
-                renderAttendees();
-                ui.attendeesInput.value = '';
-                ui.availabilityResult.classList.add('hidden');
+                renderAttendees(); ui.attendeesInput.value = ''; ui.availabilityResult.classList.add('hidden');
             }
 
-            ui.bookingModalTitle.textContent = isEditing ? `แก้ไขการจอง` : `จอง${resourceTypeName}`;
+            ui.bookingModalTitle.textContent = isEditing ? `แก้ไขการจอง` : `จอง${type === 'room' ? 'ห้องประชุม' : 'รถยนต์'}`;
             
-            ui.bookingResourceName.textContent = state.selectedResource[type];
-            if (type === 'room') {
-                ui.bookingResourceIcon.className = 'fa-solid fa-people-roof text-indigo-600 text-xl';
-                ui.bookingResourceName.className = 'text-xl font-bold text-indigo-600';
+            const resourceNameStr = roomData || state.selectedResource[type];
+            ui.bookingResourceName.textContent = resourceNameStr;
+            ui.bookingResourceIcon.className = type === 'room' ? 'fa-solid fa-people-roof text-brand-cyan text-xl' : 'fa-solid fa-car text-brand-orange text-xl';
+
+            const resourceList = type === 'room' ? state.allData.rooms : state.allData.cars;
+            const resourceObj = resourceList.find(r => (typeof r === 'object' ? r.name : r) === resourceNameStr);
+            if (resourceObj && resourceObj.image) {
+                ui.bookingResourceImage.src = resourceObj.image;
+                ui.bookingCoverContainer.classList.remove('hidden');
+                ui.bookingBtnCancelNoImg.classList.add('hidden');
             } else {
-                ui.bookingResourceIcon.className = 'fa-solid fa-car text-teal-600 text-xl';
-                ui.bookingResourceName.className = 'text-xl font-bold text-teal-600';
+                ui.bookingCoverContainer.classList.add('hidden');
+                ui.bookingBtnCancelNoImg.classList.remove('hidden');
             }
 
             const date = isEditing ? start : new Date(dateStr);
-            ui.bookingDateInput.value = formatDate(date);
-            ui.bookingDateDisplay.textContent = date.toLocaleDateString('th-TH', { 
-                year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Bangkok' 
-            });
-            
-            populateTimeSelect(ui.bookingStartTime, relevantTimeSlots.slice(0, -1));
+            ui.bookingStartDate.value = formatDate(date);
+            populateTimeSelect(ui.bookingStartTime, App.timeSlots[type].slice(0, -1));
 
             if (isEditing) {
+                ui.changeResourceSection.style.display = 'block';
+                ui.bookingResourceSelect.innerHTML = '';
+                
+                resourceList.forEach(r => {
+                    const name = typeof r === 'object' ? r.name : r;
+                    ui.bookingResourceSelect.add(new Option(name, name));
+                });
+                ui.bookingResourceSelect.value = resourceNameStr;
+                
+                ui.bookingEndDate.parentElement.style.display = 'none';
+                ui.bookingEndDate.value = '';
+                ui.multiDayWarning.style.display = 'none';
+                ui.recurringDaysSection.style.display = 'none';
+                
+                // ถ้ารายการนี้มี Series ID (จองพร้อมกันหลายวัน) ให้แสดงตัวเลือกแก้ไขทั้งหมด
+                if (seriesId) {
+                    ui.editSeriesSection.style.display = 'block';
+                    ui.bookingEditSeries.checked = false; // รีเซ็ต
+                } else {
+                    ui.editSeriesSection.style.display = 'none';
+                }
+                
                 ui.bookingId.value = bookingId;
                 ui.bookingTitle.value = fullTitle;
                 ui.bookingStartTime.value = formatTime(start);
                 updateEndTimeOptions(type); 
                 ui.bookingEndTime.value = formatTime(end);
-                ui.bookingIsPrivate.checked = !!isPrivate; // ตั้งค่า Checkbox จากข้อมูลเดิม
+                ui.bookingIsPrivate.checked = !!isPrivate; 
             } else {
+                ui.changeResourceSection.style.display = 'none';
+                ui.editSeriesSection.style.display = 'none';
+                ui.bookingEndDate.parentElement.style.display = 'block';
+                ui.bookingEndDate.value = '';
+                ui.multiDayWarning.style.display = 'none';
+                ui.recurringDaysSection.style.display = 'none';
+                ui.recurringDayCheckboxes.forEach(cb => cb.checked = true); // Reset Checkboxes
+
                 ui.bookingStartTime.value = (type === 'room') ? '09:00' : '08:00'; 
                 updateEndTimeOptions(type); 
-                ui.bookingIsPrivate.checked = false; // รีเซ็ต Checkbox สำหรับการจองใหม่
+                ui.bookingIsPrivate.checked = false; 
             }
             
-            calculateAndDisplayDuration();
-            ui.bookingModal.classList.add('flex');
-            ui.submitBookingBtn.disabled = false;
+            calculateAndDisplayDuration(); ui.bookingModal.classList.add('flex'); ui.submitBookingBtn.disabled = false;
         }
 
         const formatDate = (date) => date.toISOString().slice(0, 10);
@@ -926,21 +1055,14 @@
 
         function calculateAndDisplayDuration() {
             const { ui, state } = App;
-            const relevantTimeSlots = App.timeSlots[state.currentPage];
-            
-            if (!relevantTimeSlots) return; 
-
+            if (!App.timeSlots[state.currentPage]) return; 
             const [startH, startM] = ui.bookingStartTime.value.split(':').map(Number);
             const [endH, endM] = ui.bookingEndTime.value.split(':').map(Number);
             const diffMinutes = (endH * 60 + endM) - (startH * 60 + startM);
             
-            if (diffMinutes <= 0) { 
-                ui.bookingDuration.textContent = 'เวลาไม่ถูกต้อง'; 
-                return; 
-            }
-            
-            const hours = Math.floor(diffMinutes / 60);
-            const minutes = diffMinutes % 60;
+            if (diffMinutes <= 0) { ui.bookingDuration.textContent = 'เวลาไม่ถูกต้อง'; ui.bookingDuration.classList.add('text-red-500'); return; }
+            ui.bookingDuration.classList.remove('text-red-500');
+            const hours = Math.floor(diffMinutes / 60); const minutes = diffMinutes % 60;
             ui.bookingDuration.textContent = `${hours > 0 ? `${hours} ชั่วโมง ` : ''}${minutes > 0 ? `${minutes} นาที` : ''}`.trim();
         }
 
@@ -954,16 +1076,13 @@
             const startIndex = relevantTimeSlots.indexOf(App.ui.bookingStartTime.value);
             const endOptions = relevantTimeSlots.slice(startIndex + 1);
             populateTimeSelect(App.ui.bookingEndTime, endOptions);
-            const nextSlot = relevantTimeSlots[startIndex + 1];
-            if (nextSlot) App.ui.bookingEndTime.value = nextSlot;
+            if (relevantTimeSlots[startIndex + 1]) App.ui.bookingEndTime.value = relevantTimeSlots[startIndex + 1];
         }
         
         const showLoader = (show, type = App.state.currentPage) => {
              const { ui } = App;
              if(show) {
-                 ui.carLoaderAnimation.style.display = 'none';
-                 ui.roomLoaderAnimation.style.display = 'none';
-                 ui.adminLoaderAnimation.style.display = 'none'; 
+                 ui.carLoaderAnimation.style.display = 'none'; ui.roomLoaderAnimation.style.display = 'none'; ui.adminLoaderAnimation.style.display = 'none'; 
                  if(type === 'car') ui.carLoaderAnimation.style.display = 'block';
                  else if (type === 'room') ui.roomLoaderAnimation.style.display = 'block';
                  else if (type === 'admin') ui.adminLoaderAnimation.style.display = 'block';
@@ -974,14 +1093,10 @@
         
         const showMessage = (message, isError = false) => {
             const { ui } = App;
-            ui.messageBox.textContent = message;
-            ui.messageBox.className = `fixed top-5 right-5 text-white py-2 px-4 rounded-lg shadow-lg z-[1002] transition-transform duration-300 ${isError ? 'bg-red-500' : 'bg-green-500'}`;
-            ui.messageBox.style.display = 'block';
-            setTimeout(() => ui.messageBox.classList.remove('translate-x-[120%]'), 10);
-            setTimeout(() => {
-                ui.messageBox.classList.add('translate-x-[120%]');
-                setTimeout(() => ui.messageBox.style.display = 'none', 300);
-            }, 4000);
+            ui.messageBox.innerHTML = isError ? `<i class="fa-solid fa-circle-exclamation"></i> ${message}` : `<i class="fa-solid fa-check-circle"></i> ${message}`;
+            ui.messageBox.className = `fixed bottom-8 left-1/2 -translate-x-1/2 text-white py-3 px-6 rounded-full shadow-2xl z-[2000] font-medium transition-all duration-300 transform flex items-center gap-2 ${isError ? 'bg-red-500' : 'bg-brand-cyan'}`;
+            ui.messageBox.style.transform = 'translate(-50%, 0)'; ui.messageBox.style.opacity = '1';
+            setTimeout(() => { ui.messageBox.style.transform = 'translate(-50%, 20px)'; ui.messageBox.style.opacity = '0'; }, 3000);
         };
         
         const showConfirmation = (title, body, onConfirm) => {
