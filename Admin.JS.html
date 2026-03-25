@@ -1,9 +1,23 @@
 <script>
 /**
  * Client-side JavaScript for Admin.html
- * @version 2.8 - Added Image Support in Resource Table & Modals
+ * @version 2.9 - Fixed White Screen on first load (Removed window.reload)
  */
 (() => {
+    // --- Version Check & Cache Clear ---
+    const serverVersion = "<?= appVersion ?>";
+    const localVersion = localStorage.getItem('app_version');
+
+    // หากมีการอัปเดตเวอร์ชัน ให้ล้างข้อมูลเก่าออก (ไม่ต้องใช้ reload เพราะโค้ดใหม่ถูกโหลดมาแล้ว)
+    if (localVersion && localVersion !== serverVersion) {
+        console.log(`New version detected: ${serverVersion} (Old: ${localVersion}). Clearing cache.`);
+        localStorage.clear(); 
+        sessionStorage.clear(); 
+    }
+    
+    // บันทึกเวอร์ชันปัจจุบันเสมอ
+    localStorage.setItem('app_version', serverVersion);
+
     // --- State Management ---
     const App = {
         ui: {},
