@@ -1,7 +1,7 @@
 <script>
 /**
  * Client-side JavaScript for Admin.html
- * @version 2.7 - Formatted for readability, Added Attendees column support and search
+ * @version 2.8 - Added Image Support in Resource Table & Modals
  */
 (() => {
     // --- State Management ---
@@ -99,8 +99,12 @@
         ui.resourceModalTitle = document.getElementById('resource-modal-title');
         ui.resourceTypeInput = document.getElementById('resource-type-input');
         ui.resourceOldNameInput = document.getElementById('resource-old-name-input');
+        ui.resourceOldImageInput = document.getElementById('resource-old-image-input');
         ui.resourceNameLabel = document.getElementById('resource-name-label');
         ui.resourceNameInput = document.getElementById('resource-name-input');
+        ui.resourceImageContainer = document.getElementById('resource-image-container');
+        ui.resourceImageLabel = document.getElementById('resource-image-label');
+        ui.resourceImageInput = document.getElementById('resource-image-input');
         ui.submitResourceBtn = document.getElementById('submit-resource-btn');
         
         ui.confirmModal = document.getElementById('confirm-modal');
@@ -294,7 +298,8 @@
 
     function calculateUsage(bookings, resources, resourceKey) {
         const stats = {};
-        resources.forEach(name => {
+        resources.forEach(resObj => {
+            const name = typeof resObj === 'object' ? resObj.name : resObj;
             stats[name] = { hours: 0, count: 0 };
         });
 
@@ -555,15 +560,24 @@
             tableBody.innerHTML = `<tr><td colspan="2" class="text-center text-gray-500 py-12">ยังไม่มีห้องประชุม</td></tr>`;
             return;
         }
-        tableBody.innerHTML = rooms.map(room => `
+        tableBody.innerHTML = rooms.map(roomObj => {
+            const name = typeof roomObj === 'object' ? roomObj.name : roomObj;
+            const image = typeof roomObj === 'object' ? roomObj.image : '';
+            const imgHtml = image ? `<img src="${image}" class="w-16 h-10 rounded object-cover shadow-sm border border-gray-200">` : `<div class="w-16 h-10 bg-gray-100 rounded flex items-center justify-center border border-gray-200"><i class="fa-solid fa-image text-gray-300"></i></div>`;
+            return `
             <tr>
-                <td>${room}</td>
+                <td>
+                    <div class="flex items-center gap-4">
+                        ${imgHtml}
+                        <span class="font-medium text-gray-800">${name}</span>
+                    </div>
+                </td>
                 <td class="space-x-4">
-                    <button data-action="edit" data-id="${room}" class="text-indigo-600 hover:text-indigo-800 text-sm font-medium">แก้ไข</button>
-                    <button data-action="delete" data-id="${room}" class="text-red-600 hover:text-red-800 text-sm font-medium">ลบ</button>
+                    <button data-action="edit" data-id="${name}" data-image="${image}" class="text-indigo-600 hover:text-indigo-800 text-sm font-medium">แก้ไข</button>
+                    <button data-action="delete" data-id="${name}" class="text-red-600 hover:text-red-800 text-sm font-medium">ลบ</button>
                 </td>
             </tr>
-        `).join('');
+        `}).join('');
     }
 
     function renderCarsTable() {
@@ -575,15 +589,24 @@
             tableBody.innerHTML = `<tr><td colspan="2" class="text-center text-gray-500 py-12">ยังไม่มีรถยนต์</td></tr>`;
             return;
         }
-        tableBody.innerHTML = cars.map(car => `
+        tableBody.innerHTML = cars.map(carObj => {
+            const name = typeof carObj === 'object' ? carObj.name : carObj;
+            const image = typeof carObj === 'object' ? carObj.image : '';
+            const imgHtml = image ? `<img src="${image}" class="w-16 h-10 rounded object-cover shadow-sm border border-gray-200">` : `<div class="w-16 h-10 bg-gray-100 rounded flex items-center justify-center border border-gray-200"><i class="fa-solid fa-car text-gray-300"></i></div>`;
+            return `
             <tr>
-                <td>${car}</td>
+                <td>
+                    <div class="flex items-center gap-4">
+                        ${imgHtml}
+                        <span class="font-medium text-gray-800">${name}</span>
+                    </div>
+                </td>
                 <td class="space-x-4">
-                    <button data-action="edit" data-id="${car}" class="text-indigo-600 hover:text-indigo-800 text-sm font-medium">แก้ไข</button>
-                    <button data-action="delete" data-id="${car}" class="text-red-600 hover:text-red-800 text-sm font-medium">ลบ</button>
+                    <button data-action="edit" data-id="${name}" data-image="${image}" class="text-indigo-600 hover:text-indigo-800 text-sm font-medium">แก้ไข</button>
+                    <button data-action="delete" data-id="${name}" class="text-red-600 hover:text-red-800 text-sm font-medium">ลบ</button>
                 </td>
             </tr>
-        `).join('');
+        `}).join('');
     }
 
     function renderAdminsTable() {
@@ -638,33 +661,53 @@
         });
     }
 
-    function openResourceModal(mode, type, name = '') {
+    function openResourceModal(mode, type, name = '', image = '') {
         const { ui } = App;
+        
+        // ล้างค่ารูปภาพ Default ออกจากช่องกรอก ป้องกันความสับสน
+        let cleanImage = image;
+        if (image && image.includes('unsplash.com')) {
+            cleanImage = '';
+        }
+
         ui.resourceTypeInput.value = type;
         ui.resourceOldNameInput.value = name;
+        ui.resourceOldImageInput.value = cleanImage;
         
         let title = '';
         let label = '';
         let placeholder = '';
+        let showImage = false;
         
         if (type === 'room') {
-            title = (mode === 'add') ? 'เพิ่มห้องประชุมใหม่' : 'แก้ไขชื่อห้องประชุม';
+            title = (mode === 'add') ? 'เพิ่มห้องประชุมใหม่' : 'แก้ไขห้องประชุม';
             label = (mode === 'add') ? 'ชื่อห้องประชุม' : 'ชื่อห้องประชุมใหม่';
             placeholder = 'เช่น, ห้องประชุมเล็ก';
+            showImage = true;
         } else if (type === 'car') {
-            title = (mode === 'add') ? 'เพิ่มรถยนต์ใหม่' : 'แก้ไขชื่อรถยนต์';
+            title = (mode === 'add') ? 'เพิ่มรถยนต์ใหม่' : 'แก้ไขรถยนต์';
             label = (mode === 'add') ? 'ชื่อ/ทะเบียนรถ' : 'ชื่อ/ทะเบียนรถใหม่';
             placeholder = 'เช่น, Toyota Vios กท-1234';
+            showImage = true;
         } else if (type === 'admin') {
             title = 'เพิ่มผู้ดูแลใหม่';
             label = 'อีเมลผู้ดูแล';
             placeholder = 'เช่น, user@example.com';
+            showImage = false;
         }
         
         ui.resourceModalTitle.textContent = title;
         ui.resourceNameLabel.textContent = label;
         ui.resourceNameInput.placeholder = placeholder;
         ui.resourceNameInput.value = (mode === 'edit') ? name : '';
+        
+        if (showImage) {
+            ui.resourceImageContainer.style.display = 'block';
+            ui.resourceImageInput.value = (mode === 'edit') ? cleanImage : '';
+        } else {
+            ui.resourceImageContainer.style.display = 'none';
+            ui.resourceImageInput.value = '';
+        }
         
         ui.resourceModal.classList.add('flex');
         ui.resourceNameInput.focus();
@@ -675,6 +718,8 @@
         const type = ui.resourceTypeInput.value;
         const newName = ui.resourceNameInput.value.trim();
         const oldName = ui.resourceOldNameInput.value;
+        const newImage = ui.resourceImageInput.value.trim();
+        const oldImage = ui.resourceOldImageInput.value;
         const mode = oldName ? 'edit' : 'add';
 
         if (!newName) {
@@ -686,18 +731,16 @@
         let args = [];
 
         if (mode === 'add') {
-            if (type === 'room') serverFunction = 'addRoom';
-            else if (type === 'car') serverFunction = 'addCar';
-            else if (type === 'admin') serverFunction = 'addAdmin';
-            args = [newName];
+            if (type === 'room') { serverFunction = 'addRoom'; args = [newName, newImage]; }
+            else if (type === 'car') { serverFunction = 'addCar'; args = [newName, newImage]; }
+            else if (type === 'admin') { serverFunction = 'addAdmin'; args = [newName]; }
         } else { // mode === 'edit'
-            if (newName === oldName) {
+            if (newName === oldName && newImage === oldImage) {
                  ui.resourceModal.classList.remove('flex');
                  return; // No change
             }
-            if (type === 'room') serverFunction = 'updateRoom';
-            else if (type === 'car') serverFunction = 'updateCar';
-            args = [oldName, newName];
+            if (type === 'room') { serverFunction = 'updateRoom'; args = [oldName, newName, newImage]; }
+            else if (type === 'car') { serverFunction = 'updateCar'; args = [oldName, newName, newImage]; }
         }
 
         if (!serverFunction) return;
@@ -726,7 +769,8 @@
         const id = target.dataset.id;
         
         if (action === 'edit') {
-            openResourceModal('edit', type, id);
+            const image = target.dataset.image || '';
+            openResourceModal('edit', type, id, image);
         } else if (action === 'delete') {
             handleDelete(id, type);
         } else if (action === 'cancel') {
