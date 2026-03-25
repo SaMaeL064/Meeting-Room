@@ -387,12 +387,14 @@
         const serverVersion = "<?= appVersion ?>";
         const localVersion = localStorage.getItem('app_version');
 
-        if (serverVersion && localVersion !== serverVersion) {
-            localStorage.clear(); sessionStorage.clear();
-            localStorage.setItem('app_version', serverVersion);
-            window.location.reload(); return;
+        // หากมีการอัปเดตเวอร์ชัน ให้ล้างข้อมูลเก่าออก (ไม่ต้องใช้ reload เพราะโค้ดใหม่ถูกโหลดมาแล้ว)
+        if (localVersion && localVersion !== serverVersion) {
+            localStorage.clear(); 
+            sessionStorage.clear();
         }
-        if (!localVersion) localStorage.setItem('app_version', serverVersion);
+        
+        // บันทึกเวอร์ชันปัจจุบันเสมอ
+        localStorage.setItem('app_version', serverVersion);
 
         // --- State Management ---
         const App = {
