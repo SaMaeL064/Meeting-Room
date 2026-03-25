@@ -3,13 +3,16 @@
  *
  * สคริปต์ฝั่งเซิร์ฟเวอร์สำหรับระบบจองห้องประชุมและรถยนต์
  * * MODIFIED: เปลี่ยนระบบให้ Run as User Accessing (ผู้จองเป็น Organizer)
- * * MODIFIED: อัปเดตเวอร์ชันเพื่อ Force Clear Cache
+ * * ADDED: Multi-day Booking (SeriesID), รูปภาพห้องประชุม, และรองรับการเปลี่ยนห้อง
+ * * UPDATE: ดึงรูปรถยนต์แบบเดียวกับห้องประชุม
+ * * UPDATE V9.1: เพิ่มฟังก์ชันแก้ห้องพร้อมกันทั้งซีรีส์ (Bulk Edit), เลือกจองเฉพาะวัน (Recurring Days) และแก้บัค Time Parsing / Calendar Description
  */
 
 // --- การตั้งค่าเริ่มต้น ---
 // *** อย่าลืมตรวจสอบ ID ของไฟล์จริงของคุณ ***
-const SPREADSHEET_ID = "1RVzYj-D098P_Cgq6t45eG9uigJqRiEpC3wTjspWdEq4"; // <--- ตรวจสอบ ID
-const APP_VERSION = "7.2-ForceClear"; // <--- เปลี่ยนเลขตรงนี้เมื่อต้องการบังคับ User เคลียร์ Cache
+const SPREADSHEET_ID = "1cuzxrpg__X0bE_IGyW_JTsgyF6K1ZQdl03zdHVrO0hQ"; // <--- ตรวจสอบ ID
+const APP_VERSION = "9.1-BugFixes"; // <--- อัปเดตเวอร์ชัน
+
 
 // Sheet Names
 const SHEET_NAME_ROOMS = "Rooms";
@@ -18,9 +21,9 @@ const SHEET_NAME_CARS = "Cars";
 const SHEET_NAME_CAR_BOOKINGS = "CarBookings";
 const SHEET_NAME_ADMINS = "Admins";
 
-// Standard Headers (เพิ่ม IsPrivate)
-const ROOM_BOOKING_HEADERS = ["BookingID", "Timestamp", "Title", "Room", "StartTime", "EndTime", "BookedBy", "Status", "CancelledBy", "CancelledTimestamp", "Attendees", "CalendarEventId", "MeetLink", "IsPrivate"];
-const CAR_BOOKING_HEADERS = ["BookingID", "Timestamp", "Title", "Car", "StartTime", "EndTime", "BookedBy", "Status", "CancelledBy", "CancelledTimestamp", "Attendees", "CalendarEventId", "IsPrivate"];
+// Standard Headers (เพิ่ม SeriesID)
+const ROOM_BOOKING_HEADERS = ["BookingID", "SeriesID", "Timestamp", "Title", "Room", "StartTime", "EndTime", "BookedBy", "Status", "CancelledBy", "CancelledTimestamp", "Attendees", "CalendarEventId", "MeetLink", "IsPrivate"];
+const CAR_BOOKING_HEADERS = ["BookingID", "SeriesID", "Timestamp", "Title", "Car", "StartTime", "EndTime", "BookedBy", "Status", "CancelledBy", "CancelledTimestamp", "Attendees", "CalendarEventId", "IsPrivate"];
 
 
 // --- Main Functions ---
@@ -52,8 +55,8 @@ function getInitialData() {
     userEmail: user ? user.getEmail() : '',
     isAdmin: checkIfUserIsAdmin_(), 
     adminUrl: `${webAppUrl}?page=admin`,
-    rooms: getResources_(SHEET_NAME_ROOMS, "RoomName", "ห้องประชุมใหญ่"),
-    cars: getResources_(SHEET_NAME_CARS, "CarName", "Toyota Vios"),
+    rooms: getResourcesWithImages_(SHEET_NAME_ROOMS, "RoomName"), // ดึงรูปห้อง
+    cars: getResourcesWithImages_(SHEET_NAME_CARS, "CarName"),    // ดึงรูปรถแบบเดียวกัน
     roomBookings: getAllBookings_(SHEET_NAME_ROOM_BOOKINGS, timezone),
     carBookings: getAllBookings_(SHEET_NAME_CAR_BOOKINGS, timezone),
     directory: getWorkspaceUsers()
@@ -144,6 +147,30 @@ function checkAttendeesAvailability(emails, startTimeStr, endTimeStr) {
 }
 
 // --- Generic Resource Management ---
+
+// อัปเดต: ฟังก์ชันสำหรับดึงชื่อพร้อมลิงก์รูปภาพ (คอลัมน์ A = ชื่อ, คอลัมน์ B = ลิงก์รูป)
+function getResourcesWithImages_(sheetName, header) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    let sheet = ss.getSheetByName(sheetName);
+    if (!sheet) {
+      sheet = ss.insertSheet(sheetName);
+      sheet.appendRow([header || "Name", "ImageUrl"]);
+      return [];
+    }
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 2) return [];
+    
+    const data = sheet.getRange(2, 1, lastRow - 1, 2).getValues();
+    return data.map(row => ({
+      name: row[0] ? String(row[0]).trim() : "",
+      image: row[1] ? String(row[1]).trim() : "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=800" // รูปภาพ Default
+    })).filter(r => r.name !== "");
+  } catch (e) {
+    Logger.log(`Error getting resources from ${sheetName}: ` + e.message);
+    return [];
+  }
+}
 
 function getResources_(sheetName, header, defaultItem) {
   try {
@@ -327,47 +354,83 @@ function updateResource_(resourceSheetName, bookingSheetName, resourceHeader, ol
 // --- Generic Booking Management ---
 
 function submitRoomBooking(formData) {
-  return submitBooking_(SHEET_NAME_ROOM_BOOKINGS, "Room", ROOM_BOOKING_HEADERS, formData);
+  return submitBookingMultiDay_(SHEET_NAME_ROOM_BOOKINGS, "Room", ROOM_BOOKING_HEADERS, formData);
 }
 
 function submitCarBooking(formData) {
-  return submitBooking_(SHEET_NAME_CAR_BOOKINGS, "Car", CAR_BOOKING_HEADERS, formData);
+  return submitBookingMultiDay_(SHEET_NAME_CAR_BOOKINGS, "Car", CAR_BOOKING_HEADERS, formData);
 }
 
-function submitBooking_(sheetName, resourceHeader, headersConst, formData) {
+// ฟังก์ชันใหม่: จัดการจองแบบหลายวันและมี SeriesID (พร้อมเลือกว่าจะจองเฉพาะวันไหนในสัปดาห์)
+function submitBookingMultiDay_(sheetName, resourceHeader, headersConst, formData) {
   const userEmail = getUserEmail_(); 
-  const { title, resource, startTime, endTime, attendees, isPrivate } = formData; 
+  // รับ selectedDays เป็น Array ของวัน (0=อาทิตย์, 1=จันทร์, ..., 6=เสาร์)
+  const { title, resource, startDate, endDate, startTime, endTime, attendees, isPrivate, selectedDays } = formData; 
   
-  if (!title || !resource || !startTime || !endTime) throw new Error("กรุณากรอกข้อมูลให้ครบถ้วน");
+  if (!title || !resource || !startDate || !startTime || !endTime) throw new Error("กรุณากรอกข้อมูลให้ครบถ้วน");
 
-  const start = new Date(startTime);
-  const end = new Date(endTime);
-  if (start >= end) throw new Error("เวลาสิ้นสุดต้องอยู่หลังเวลาเริ่มต้น");
+  const startD = new Date(startDate);
+  const endD = endDate ? new Date(endDate) : new Date(startDate);
+  
+  if (startD > endD) throw new Error("วันที่สิ้นสุดต้องไม่ก่อนวันที่เริ่มต้น");
 
-  try {
-    checkForConflict_(sheetName, resourceHeader, resource, start, end);
-    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-    let sheet = ss.getSheetByName(sheetName);
+  const seriesId = "SR" + new Date().getTime(); // สร้าง Group ID สำหรับซีรีส์
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  let sheet = ss.getSheetByName(sheetName);
+  
+  if (!sheet) {
+    sheet = ss.insertSheet(sheetName);
+    sheet.appendRow(headersConst); 
+  }
+  ensureHeader_(sheet, headersConst); 
+  
+  let currentD = new Date(startD);
+  const eventsToReturn = [];
 
-    if (!sheet) {
-      sheet = ss.insertSheet(sheetName);
-      sheet.appendRow(headersConst); 
-      ensureHeader_(sheet, headersConst); 
-    } else {
-      ensureHeader_(sheet, headersConst); 
+  // 1. เช็ค Conflict ล่วงหน้าของทุกวันในซีรีส์
+  while (currentD <= endD) {
+    // ถ้าระบุวันในสัปดาห์มา และวันนี้ไม่ใช่วันที่เลือก ให้ข้ามไป
+    if (selectedDays && selectedDays.length > 0) {
+      const dayOfWeek = currentD.getDay().toString();
+      if (!selectedDays.includes(dayOfWeek)) {
+        currentD.setDate(currentD.getDate() + 1);
+        continue;
+      }
     }
+
+    const dateStr = currentD.toISOString().split('T')[0];
+    const sTime = new Date(`${dateStr}T${startTime}`);
+    const eTime = new Date(`${dateStr}T${endTime}`);
     
-    const bookingId = "BK" + new Date().getTime();
+    if (sTime >= eTime) throw new Error("เวลาสิ้นสุดต้องอยู่หลังเวลาเริ่มต้น");
+    checkForConflict_(sheetName, resourceHeader, resource, sTime, eTime);
     
-    // --- 📅 Create Google Calendar Event & Meet Link ---
+    currentD.setDate(currentD.getDate() + 1);
+  }
+
+  // 2. บันทึกข้อมูลและสร้าง Calendar Event สำหรับแต่ละวัน
+  currentD = new Date(startD);
+  while (currentD <= endD) {
+    // ถ้าระบุวันในสัปดาห์มา และวันนี้ไม่ใช่วันที่เลือก ให้ข้ามไป
+    if (selectedDays && selectedDays.length > 0) {
+      const dayOfWeek = currentD.getDay().toString();
+      if (!selectedDays.includes(dayOfWeek)) {
+        currentD.setDate(currentD.getDate() + 1);
+        continue;
+      }
+    }
+
+    const dateStr = currentD.toISOString().split('T')[0];
+    const sTime = new Date(`${dateStr}T${startTime}`);
+    const eTime = new Date(`${dateStr}T${endTime}`);
+    const bookingId = "BK" + new Date().getTime() + Math.floor(Math.random() * 1000);
+    
     let calendarEventId = "";
     let meetLink = "";
     
     if (resourceHeader === "Room") {
         try {
             const description = `รายละเอียดการจอง: ${resource}\nผู้จอง: ${userEmail}\nระบบจอง BeNeat Central Reservation`;
-            const eventTitle = title; 
-
             let attendeeList = [];
             
             if (attendees && attendees.trim() !== "") {
@@ -376,44 +439,36 @@ function submitBooking_(sheetName, resourceHeader, headersConst, formData) {
             }
 
             const eventPayload = {
-                summary: eventTitle,
+                summary: title,
                 location: resource,
                 description: description,
-                start: { dateTime: start.toISOString() },
-                end: { dateTime: end.toISOString() },
+                start: { dateTime: sTime.toISOString() },
+                end: { dateTime: eTime.toISOString() },
                 attendees: attendeeList,
                 guestsCanModify: true, 
                 visibility: isPrivate ? 'private' : 'default',
                 conferenceData: {
-                    createRequest: {
-                        requestId: bookingId, 
-                        conferenceSolutionKey: { type: "hangoutsMeet" }
-                    }
+                    createRequest: { requestId: bookingId, conferenceSolutionKey: { type: "hangoutsMeet" } }
                 }
             };
 
             const createdEvent = Calendar.Events.insert(eventPayload, 'primary', {
-                conferenceDataVersion: 1,
-                sendUpdates: "all" 
+                conferenceDataVersion: 1, sendUpdates: "all" 
             });
             
             calendarEventId = createdEvent.id;
-            if (createdEvent.hangoutLink) {
-                meetLink = createdEvent.hangoutLink;
-            }
+            if (createdEvent.hangoutLink) meetLink = createdEvent.hangoutLink;
         } catch (calError) {
             Logger.log("สร้างปฏิทินไม่สำเร็จ: " + calError.message);
         }
     }
-    // ----------------------------------------
 
     const newRowData = {
-      BookingID: bookingId, Timestamp: new Date(), Title: title,
-      [resourceHeader]: resource, StartTime: start, EndTime: end,
+      BookingID: bookingId, SeriesID: seriesId, Timestamp: new Date(), Title: title,
+      [resourceHeader]: resource, StartTime: sTime, EndTime: eTime,
       BookedBy: userEmail, Status: "Confirmed", CancelledBy: "", CancelledTimestamp: "",
       Attendees: attendees || "", CalendarEventId: calendarEventId,
-      MeetLink: meetLink,
-      IsPrivate: isPrivate ? "TRUE" : "FALSE" 
+      MeetLink: meetLink, IsPrivate: isPrivate ? "TRUE" : "FALSE" 
     };
 
     const actualHeaders = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
@@ -421,35 +476,29 @@ function submitBooking_(sheetName, resourceHeader, headersConst, formData) {
     
     sheet.appendRow(rowArray);
 
-    const newEvent = {
+    eventsToReturn.push({
         title: `${title} (${userEmail.split('@')[0]})`,
-        start: start.toISOString(),
-        end: end.toISOString(),
+        start: sTime.toISOString(), end: eTime.toISOString(),
         [resourceHeader.toLowerCase()]: resource,
         extendedProps: {
-            bookingId: bookingId,
-            bookedBy: userEmail,
-            fullTitle: title,
-            attendees: attendees || "",
-            meetLink: meetLink,
-            isPrivate: isPrivate 
+            bookingId: bookingId, seriesId: seriesId, bookedBy: userEmail,
+            fullTitle: title, attendees: attendees || "", meetLink: meetLink, isPrivate: isPrivate 
         }
-    };
-    
-    return { 
-      success: true, 
-      message: "บันทึกการจองและอัปเดตปฏิทินสำเร็จ!", 
-      newBooking: newEvent,
-      rooms: getResources_(SHEET_NAME_ROOMS, "RoomName", null),
-      cars: getResources_(SHEET_NAME_CARS, "CarName", null),
-      roomBookings: getAllBookings_(SHEET_NAME_ROOM_BOOKINGS, Session.getScriptTimeZone()),
-      carBookings: getAllBookings_(SHEET_NAME_CAR_BOOKINGS, Session.getScriptTimeZone()),
-      isAdmin: checkIfUserIsAdmin_()
-    };
-  } catch (e) {
-    Logger.log(`Error submitting booking to ${sheetName}: ` + e.message);
-    throw new Error(e.message || "เกิดข้อผิดพลาดในการบันทึกข้อมูล (กรุณาตรวจสอบสิทธิ์การเข้าถึง Sheet)");
+    });
+
+    currentD.setDate(currentD.getDate() + 1); // ไปวันถัดไป
   }
+  
+  if (eventsToReturn.length === 0) {
+      throw new Error("ไม่มีวันที่ตรงกับเงื่อนไขที่เลือกเลย กรุณาตรวจสอบวันที่และวันในสัปดาห์");
+  }
+
+  return { 
+    success: true, 
+    message: eventsToReturn.length === 1 ? "บันทึกการจองสำเร็จ" : `จองสำเร็จจำนวน ${eventsToReturn.length} รายการ`, 
+    roomBookings: getAllBookings_(SHEET_NAME_ROOM_BOOKINGS, Session.getScriptTimeZone()),
+    carBookings: getAllBookings_(SHEET_NAME_CAR_BOOKINGS, Session.getScriptTimeZone())
+  };
 }
 
 function updateRoomBooking(formData) {
@@ -461,15 +510,19 @@ function updateCarBooking(formData) {
 }
 
 function updateBooking_(sheetName, resourceHeader, formData) {
-    const { bookingId, title, startTime, endTime, attendees, isPrivate } = formData;
+    const { bookingId, title, resource, startTime, endTime, attendees, isPrivate, editSeries } = formData;
 
-    if (!bookingId || !title || !startTime || !endTime) {
+    if (!bookingId || !title || !startTime || !endTime || !resource) {
         throw new Error("ข้อมูลไม่ครบถ้วนสำหรับการอัปเดต");
     }
     
-    const start = new Date(startTime);
-    const end = new Date(endTime);
-    if (start >= end) {
+    // แก้บัค Time Parsing: อ่านวันที่และเวลาจากการส่งแบบ YYYY-MM-DDTHH:mm กลับมา
+    const startTemplate = new Date(startTime);
+    const endTemplate = new Date(endTime);
+    if (isNaN(startTemplate.getTime()) || isNaN(endTemplate.getTime())) {
+        throw new Error("รูปแบบเวลาไม่ถูกต้อง (กรุณารีเฟรชหน้าเว็บ)");
+    }
+    if (startTemplate >= endTemplate) {
         throw new Error("เวลาสิ้นสุดต้องอยู่หลังเวลาเริ่มต้น");
     }
     
@@ -488,91 +541,108 @@ function updateBooking_(sheetName, resourceHeader, formData) {
            throw new Error("คุณไม่มีสิทธิ์แก้ไขการจองนี้");
         }
 
-        const resourceCol = headers.indexOf(resourceHeader);
-        const resourceName = row[resourceCol];
+        const seriesIdIndex = headers.indexOf("SeriesID");
+        const seriesId = seriesIdIndex !== -1 ? row[seriesIdIndex] : null;
 
-        checkForConflict_(sheetName, resourceHeader, resourceName, start, end, bookingId);
+        // ค้นหาแถวทั้งหมดที่จะอัปเดต (ถ้าแก้ 1 รายการ ก็จะมีแค่แถวเดียว ถ้าแก้ทั้งซีรีส์ก็จะมีหลายแถว)
+        let rowsToUpdate = [{ rowIndex, row, bookingId }];
+        
+        if (editSeries && seriesId) {
+            const data = sheet.getDataRange().getValues();
+            data.shift(); // เอา header ออก
+            // กรองหา row ที่มี SeriesID ตรงกัน และสถานะยังเป็น Confirmed
+            rowsToUpdate = data.map((r, idx) => ({ rowIndex: idx + 2, row: r, bookingId: r[headers.indexOf("BookingID")] }))
+                               .filter(item => item.row[seriesIdIndex] === seriesId && item.row[headers.indexOf("Status")] === "Confirmed");
+        }
+
+        // 1. เช็ค Conflict ก่อนแก้ไขทั้งหมด (แยกเช็คทีละวันตามวันที่เดิมของแต่ละแถว แต่ใช้เวลาใหม่ที่ถูกส่งมา)
+        const startHours = startTemplate.getHours();
+        const startMinutes = startTemplate.getMinutes();
+        const endHours = endTemplate.getHours();
+        const endMinutes = endTemplate.getMinutes();
+
+        rowsToUpdate.forEach(item => {
+            const origStart = parseSheetDate_(item.row[headers.indexOf("StartTime")]);
+            const itemNewStart = new Date(origStart);
+            itemNewStart.setHours(startHours, startMinutes, 0, 0);
+            
+            const itemNewEnd = new Date(origStart);
+            itemNewEnd.setHours(endHours, endMinutes, 0, 0);
+
+            checkForConflict_(sheetName, resourceHeader, resource, itemNewStart, itemNewEnd, item.bookingId);
+        });
 
         const titleCol = headers.indexOf("Title") + 1;
+        const resourceCol = headers.indexOf(resourceHeader) + 1; 
         const startCol = headers.indexOf("StartTime") + 1;
         const endCol = headers.indexOf("EndTime") + 1;
         const attendeesCol = headers.indexOf("Attendees") + 1;
         const calendarEventIdCol = headers.indexOf("CalendarEventId"); 
-        const meetLinkCol = headers.indexOf("MeetLink");
         const isPrivateCol = headers.indexOf("IsPrivate") + 1;
 
-        sheet.getRange(rowIndex, titleCol).setValue(title);
-        sheet.getRange(rowIndex, startCol).setValue(start);
-        sheet.getRange(rowIndex, endCol).setValue(end);
-        
-        if(attendeesCol > 0) {
-            sheet.getRange(rowIndex, attendeesCol).setValue(attendees || "");
-        }
+        // 2. ดำเนินการอัปเดต
+        rowsToUpdate.forEach(item => {
+            const origStart = parseSheetDate_(item.row[headers.indexOf("StartTime")]);
+            const itemNewStart = new Date(origStart);
+            itemNewStart.setHours(startHours, startMinutes, 0, 0);
+            
+            const itemNewEnd = new Date(origStart);
+            itemNewEnd.setHours(endHours, endMinutes, 0, 0);
 
-        if(isPrivateCol > 0) {
-            sheet.getRange(rowIndex, isPrivateCol).setValue(isPrivate ? "TRUE" : "FALSE");
-        }
-        
-        // --- 📅 Update Google Calendar Event ---
-        if (resourceHeader === "Room" && calendarEventIdCol !== -1 && row[calendarEventIdCol]) {
-            try {
-                const eventId = row[calendarEventIdCol];
-                const event = Calendar.Events.get('primary', eventId);
-                
-                if (event) {
-                    const updatePayload = {
-                        summary: title, 
-                        start: { dateTime: start.toISOString() },
-                        end: { dateTime: end.toISOString() },
-                        description: event.description,
-                        visibility: isPrivate ? 'private' : 'default' 
-                    };
-
-                    if (attendees !== undefined) {
-                        let newAttendees = [];
-                        if (attendees && attendees.trim() !== "") {
-                             newAttendees = attendees.split(',').map(email => ({ email: email.trim() }));
-                        }
-                        updatePayload.attendees = newAttendees;
-                    }
+            sheet.getRange(item.rowIndex, titleCol).setValue(title);
+            sheet.getRange(item.rowIndex, resourceCol).setValue(resource); 
+            sheet.getRange(item.rowIndex, startCol).setValue(itemNewStart);
+            sheet.getRange(item.rowIndex, endCol).setValue(itemNewEnd);
+            
+            if(attendeesCol > 0) {
+                sheet.getRange(item.rowIndex, attendeesCol).setValue(attendees || "");
+            }
+            if(isPrivateCol > 0) {
+                sheet.getRange(item.rowIndex, isPrivateCol).setValue(isPrivate ? "TRUE" : "FALSE");
+            }
+            
+            // --- 📅 Update Google Calendar Event ---
+            if (resourceHeader === "Room" && calendarEventIdCol !== -1 && item.row[calendarEventIdCol]) {
+                try {
+                    const eventId = item.row[calendarEventIdCol];
+                    const event = Calendar.Events.get('primary', eventId);
                     
-                    Calendar.Events.patch(updatePayload, 'primary', eventId);
-                }
-            } catch (calError) {
-                Logger.log("ไม่สามารถอัปเดตปฏิทินได้: " + calError.message);
-            }
-        }
-        // ----------------------------------------
-        
-        let existingMeetLink = "";
-        if (meetLinkCol !== -1 && row[meetLinkCol]) {
-            existingMeetLink = row[meetLinkCol];
-        }
+                    if (event) {
+                        // แก้บัค: อัปเดตข้อความ Description เพื่อให้ชื่อห้องเปลี่ยนตาม
+                        let newDesc = event.description || "";
+                        newDesc = newDesc.replace(/รายละเอียดการจอง: .*/, `รายละเอียดการจอง: ${resource}`);
 
-        const updatedEvent = {
-            title: `${title} (${creatorEmail.split('@')[0]})`,
-            start: start.toISOString(),
-            end: end.toISOString(),
-            [resourceHeader.toLowerCase()]: resourceName,
-            extendedProps: {
-                bookingId: bookingId,
-                bookedBy: creatorEmail,
-                fullTitle: title,
-                attendees: attendees || "",
-                meetLink: existingMeetLink,
-                isPrivate: isPrivate
+                        const updatePayload = {
+                            summary: title, 
+                            location: resource, // อัปเดต Location เปลี่ยนห้องใน Calendar
+                            start: { dateTime: itemNewStart.toISOString() },
+                            end: { dateTime: itemNewEnd.toISOString() },
+                            description: newDesc, // อัปเดต Description เปลี่ยนห้องใน Calendar
+                            visibility: isPrivate ? 'private' : 'default' 
+                        };
+
+                        if (attendees !== undefined) {
+                            let newAttendees = [];
+                            if (attendees && attendees.trim() !== "") {
+                                 newAttendees = attendees.split(',').map(email => ({ email: email.trim() }));
+                            }
+                            updatePayload.attendees = newAttendees;
+                        }
+                        
+                        Calendar.Events.patch(updatePayload, 'primary', eventId);
+                    }
+                } catch (calError) {
+                    Logger.log("ไม่สามารถอัปเดตปฏิทินได้: " + calError.message);
+                }
             }
-        };
+            // ----------------------------------------
+        });
         
         return { 
           success: true, 
-          message: "อัปเดตการจองสำเร็จ", 
-          updatedBooking: updatedEvent,
-          rooms: getResources_(SHEET_NAME_ROOMS, "RoomName", null),
-          cars: getResources_(SHEET_NAME_CARS, "CarName", null),
+          message: rowsToUpdate.length > 1 ? `อัปเดตการจองทั้งซีรีส์สำเร็จ (${rowsToUpdate.length} รายการ)` : "อัปเดตการจองสำเร็จ", 
           roomBookings: getAllBookings_(SHEET_NAME_ROOM_BOOKINGS, Session.getScriptTimeZone()),
           carBookings: getAllBookings_(SHEET_NAME_CAR_BOOKINGS, Session.getScriptTimeZone()),
-          isAdmin: checkIfUserIsAdmin_()
         };
     } catch (e) {
         Logger.log(`Error updating booking in ${sheetName}: ` + e.message);
@@ -580,15 +650,16 @@ function updateBooking_(sheetName, resourceHeader, formData) {
     }
 }
 
-function cancelRoomBooking(bookingId) {
-  return cancelBooking_(SHEET_NAME_ROOM_BOOKINGS, ROOM_BOOKING_HEADERS, bookingId);
+// อัปเดต: รับค่า cancelSeries
+function cancelRoomBooking(bookingId, cancelSeries = false) {
+  return cancelBooking_(SHEET_NAME_ROOM_BOOKINGS, ROOM_BOOKING_HEADERS, bookingId, cancelSeries);
 }
 
-function cancelCarBooking(bookingId) {
-  return cancelBooking_(SHEET_NAME_CAR_BOOKINGS, CAR_BOOKING_HEADERS, bookingId);
+function cancelCarBooking(bookingId, cancelSeries = false) {
+  return cancelBooking_(SHEET_NAME_CAR_BOOKINGS, CAR_BOOKING_HEADERS, bookingId, cancelSeries);
 }
 
-function cancelBooking_(sheetName, headersConst, bookingId) {
+function cancelBooking_(sheetName, headersConst, bookingId, cancelSeries) {
     const userEmail = getUserEmail_(); 
     const cancellationTimestamp = new Date(); 
     
@@ -612,46 +683,47 @@ function cancelBooking_(sheetName, headersConst, bookingId) {
         const cancelledByCol = headers.indexOf("CancelledBy") + 1;
         const cancelledTimestampCol = headers.indexOf("CancelledTimestamp") + 1;
         const calendarEventIdCol = headers.indexOf("CalendarEventId"); 
+        
+        const seriesIdIndex = headers.indexOf("SeriesID");
+        const targetSeriesId = seriesIdIndex !== -1 ? row[seriesIdIndex] : null;
 
-        const timezone = Session.getScriptTimeZone(); 
-
-        if (row[headers.indexOf("Status")] === "Cancelled") {
-          return { 
-            success: true, 
-            message: "การจองนี้ถูกยกเลิกไปแล้ว", 
-            cancelledId: bookingId,
-            roomBookings: getAllBookingsForAdmin_(SHEET_NAME_ROOM_BOOKINGS, timezone, "Room"),
-            carBookings: getAllBookingsForAdmin_(SHEET_NAME_CAR_BOOKINGS, timezone, "Car")
-          };
+        // ถ้ายกเลิกแบบ Series ให้หา ID ทั้งหมดที่ตรงกัน
+        let rowsToCancel = [{ rowIndex, row }];
+        
+        if (cancelSeries && targetSeriesId) {
+            const data = sheet.getDataRange().getValues();
+            data.shift(); // เอา header ออก
+            // กรองหา row ที่มี SeriesID ตรงกัน และสถานะยังไม่ Cancelled
+            rowsToCancel = data.map((r, idx) => ({ rowIndex: idx + 2, row: r }))
+                               .filter(item => item.row[seriesIdIndex] === targetSeriesId && item.row[headers.indexOf("Status")] !== "Cancelled");
         }
 
-        sheet.getRange(rowIndex, statusCol).setValue("Cancelled");
-        
-        if (cancelledByCol > 0) {
-            sheet.getRange(rowIndex, cancelledByCol).setValue(userEmail);
-        }
-        
-        if (cancelledTimestampCol > 0) { 
-            sheet.getRange(rowIndex, cancelledTimestampCol).setValue(cancellationTimestamp);
-        }
-        
-        // --- 📅 Delete Google Calendar Event ---
-        if (calendarEventIdCol !== -1 && row[calendarEventIdCol]) {
-            try {
-                const eventId = row[calendarEventIdCol];
-                Calendar.Events.remove('primary', eventId, { sendUpdates: "all" });
-            } catch (calError) {
-                Logger.log("ไม่สามารถลบปฏิทินได้ (อาจถูกลบไปแล้ว หรือสิทธิ์ไม่พอ): " + calError.message);
+        // ทำการยกเลิกทุก Row ที่อยู่ใน Array
+        rowsToCancel.forEach(item => {
+            sheet.getRange(item.rowIndex, statusCol).setValue("Cancelled");
+            
+            if (cancelledByCol > 0) {
+                sheet.getRange(item.rowIndex, cancelledByCol).setValue(userEmail);
             }
-        }
-        // ----------------------------------------
+            if (cancelledTimestampCol > 0) { 
+                sheet.getRange(item.rowIndex, cancelledTimestampCol).setValue(cancellationTimestamp);
+            }
+            
+            // --- 📅 Delete Google Calendar Event ---
+            if (calendarEventIdCol !== -1 && item.row[calendarEventIdCol]) {
+                try {
+                    Calendar.Events.remove('primary', item.row[calendarEventIdCol], { sendUpdates: "all" });
+                } catch (calError) {
+                    Logger.log("ไม่สามารถลบปฏิทินได้: " + calError.message);
+                }
+            }
+        });
 
         return { 
           success: true, 
-          message: "ยกเลิกการจองสำเร็จ", 
-          cancelledId: bookingId,
-          roomBookings: getAllBookingsForAdmin_(SHEET_NAME_ROOM_BOOKINGS, timezone, "Room"),
-          carBookings: getAllBookingsForAdmin_(SHEET_NAME_CAR_BOOKINGS, timezone, "Car")
+          message: cancelSeries ? `ยกเลิกรายการที่เกี่ยวข้องทั้งหมดสำเร็จ` : "ยกเลิกรายการสำเร็จ", 
+          roomBookings: getAllBookings_(SHEET_NAME_ROOM_BOOKINGS, Session.getScriptTimeZone()),
+          carBookings: getAllBookings_(SHEET_NAME_CAR_BOOKINGS, Session.getScriptTimeZone())
         };
 
     } catch (e) {
@@ -681,7 +753,8 @@ function getAllBookings_(sheetName, timezone) {
             Resource: headers.indexOf(resourceHeader), StartTime: headers.indexOf("StartTime"),
             EndTime: headers.indexOf("EndTime"), Status: headers.indexOf("Status"),
             BookedBy: headers.indexOf("BookedBy"), Attendees: headers.indexOf("Attendees"),
-            MeetLink: headers.indexOf("MeetLink"), IsPrivate: headers.indexOf("IsPrivate")
+            MeetLink: headers.indexOf("MeetLink"), IsPrivate: headers.indexOf("IsPrivate"),
+            SeriesID: headers.indexOf("SeriesID") // อัปเดตเพิ่ม
         };
 
         if (colIndices.BookingID === -1 || colIndices.Resource === -1 || colIndices.StartTime === -1 || colIndices.EndTime === -1 || colIndices.Status === -1 || colIndices.BookedBy === -1) {
@@ -699,19 +772,19 @@ function getAllBookings_(sheetName, timezone) {
 
                 const bookedBy = row[colIndices.BookedBy];
                 const isOwner = bookedBy.toLowerCase() === currentUserEmail;
-                // --- FIX: Robust boolean check ---
-                // รองรับทั้ง "TRUE" (String), "true" (String), หรือ true (Boolean)
                 const isPrivateVal = colIndices.IsPrivate !== -1 ? row[colIndices.IsPrivate] : false;
                 const isPrivate = String(isPrivateVal).toUpperCase() === "TRUE";
+                
+                // ดึง SeriesID ออกมา
+                const seriesId = colIndices.SeriesID !== -1 ? row[colIndices.SeriesID] : "";
 
                 // --- 🔒 Privacy Logic ---
                 let displayTitle = row[colIndices.Title];
                 let displayAttendees = colIndices.Attendees !== -1 ? row[colIndices.Attendees] : "";
 
-                // ถ้าเป็น Private และไม่ใช่เจ้าของ และไม่ใช่ Admin -> ซ่อนข้อมูล
                 if (isPrivate && !isOwner && !isAdmin) {
                     displayTitle = "🔒 Private Meeting";
-                    displayAttendees = ""; // ซ่อนผู้เข้าร่วมด้วยเพื่อความปลอดภัย
+                    displayAttendees = ""; 
                 }
                 // -----------------------
 
@@ -721,6 +794,7 @@ function getAllBookings_(sheetName, timezone) {
                     [resourceHeader.toLowerCase()]: row[colIndices.Resource],
                     extendedProps: {
                         bookingId: row[colIndices.BookingID],
+                        seriesId: seriesId, // ส่งให้ Frontend รู้ว่าเป็นกลุ่มเดียวกัน
                         bookedBy: bookedBy,
                         fullTitle: displayTitle, 
                         attendees: displayAttendees,
